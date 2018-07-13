@@ -1,23 +1,23 @@
-
-
+//go:generate protoc --proto_path=./model --go_out=./model ./model/node.proto
 package main
 
 import (
-"log"
-"strings"
-"time"
+	"log"
+	"os"
+	"os/signal"
 
-"github.com/ligato/cn-infra/agent"
-"github.com/ligato/cn-infra/config"
-"github.com/ligato/cn-infra/datasync"
-"github.com/ligato/cn-infra/datasync/kvdbsync"
-"github.com/ligato/cn-infra/datasync/resync"
-"github.com/ligato/cn-infra/db/keyval/etcd"
-"github.com/ligato/cn-infra/examples/model"
-"github.com/ligato/cn-infra/logging"
-"github.com/ligato/cn-infra/servicelabel"
-"github.com/ligato/cn-infra/utils/safeclose"
-"golang.org/x/net/context"
+	"sync"
+
+	"github.com/ligato/cn-infra/agent"
+	"github.com/ligato/cn-infra/config"
+	"github.com/ligato/cn-infra/datasync/kvdbsync"
+	"github.com/ligato/cn-infra/db/keyval/etcd"
+	"github.com/ligato/cn-infra/logging"
+	"github.com/golang/protobuf/proto"
+	"github.com/ligato/cn-infra/servicelabel"
+	"github.com/ligato/cn-infra/examples/contiv-crd/model"
+	"github.com/ligato/cn-infra/datasync"
+	"github.com/ligato/cn-infra/db/keyval"
 )
 
 // *************************************************************************
@@ -30,82 +30,76 @@ import (
 // the log.
 // ************************************************************************/
 
-const PluginName = "contiv-crd"
+const (
+	PluginName = "contiv-crd"
+)
+
+
 
 func main() {
+
 	// Init close channel used to stop the example.
-	exampleFinished := make(chan struct{})
-
-	// Start Agent with ExamplePlugin, ETCDPlugin & FlavorLocal (reused cn-infra plugins).
-	/*agent := local.NewAgent(local.WithPlugins(func(flavor *local.FlavorLocal) []*core.NamedPlugin {
-		etcdPlug := &etcd.Plugin{}
-		etcdDataSync := &kvdbsync.Plugin{}
-		resyncOrch := &resync.Plugin{}
-
-		etcdPlug.Deps.PluginInfraDeps = *flavor.InfraDeps("etcd", local.WithConf())
-		resyncOrch.Deps.PluginLogDeps = *flavor.LogDeps("etcd-resync")
-		connectors.InjectKVDBSync(etcdDataSync, etcdPlug, etcdPlug.PluginName, flavor, resyncOrch)
-
-		examplePlug := &ExamplePlugin{closeChannel: exampleFinished}
-		examplePlug.Deps.PluginInfraDeps = *flavor.InfraDeps("etcd-example")
-		examplePlug.Deps.Publisher = etcdDataSync // Inject datasync Watcher to example plugin.
-		examplePlug.Deps.Watcher = etcdDataSync   // Inject datasync Publisher to example plugin.
-
-		return []*core.NamedPlugin{
-			{etcdPlug.PluginName, etcdPlug},
-			{etcdDataSync.PluginName, etcdDataSync},
-			{resyncOrch.PluginName, resyncOrch},
-			{examplePlug.PluginName, examplePlug},
-		}
-	}))
-	core.EventLoopWithInterrupt(agent, exampleFinished)*/
+	pluginFinished := make(chan struct{})
 
 	etcdPlug := etcd.NewPlugin(
 		etcd.UseConf(etcd.Config{
-			Endpoints:[]string{":2379"},
+			Endpoints: []string{":32379"},
 		}),
 	)
 
 	etcdDataSync := kvdbsync.NewPlugin(
 		kvdbsync.UseDeps(kvdbsync.Deps{
-			KvPlugin:   etcdPlug,
-			ResyncOrch: resync.DefaultPlugin,
+			KvPlugin: etcdPlug,
 		}),
 	)
-	p := &ExamplePlugin{
+
+	p := &Plugin{
 		Deps: Deps{
 			Log:          logging.ForPlugin(PluginName),
 			PluginConfig: config.ForPlugin(PluginName),
 			ServiceLabel: servicelabel.DefaultPlugin,
-			Publisher:    etcdDataSync,
-			Watcher:      etcdDataSync,
+			Getter:       etcdDataSync,
 		},
-		closeChannel: exampleFinished,
+		closeChannel: pluginFinished,
 	}
 
 	a := agent.NewAgent(
 		agent.AllPlugins(p),
-		agent.QuitOn(exampleFinished),
+		agent.QuitOn(pluginFinished),
 	)
+
 	if err := a.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
+type KeyProtoValBroker interface {
+	// Put <data> to ETCD or to any other key-value based data source.
+	Put(key string, data proto.Message, opts ...datasync.PutOption) error
+
+	// Delete data under the <key> in ETCD or in any other key-value based data
+	// source.
+	Delete(key string, opts ...datasync.DelOption) (existed bool, err error)
+
+	// GetValue reads a value from etcd stored under the given key.
+	GetValue(key string, reqObj proto.Message) (found bool, revision int64, err error)
+
+	// List values stored in etcd under the given prefix.
+	ListValues(prefix string) (keyval.ProtoKeyValIterator, error)
+}
+
 // ExamplePlugin demonstrates the usage of datasync API.
-type ExamplePlugin struct {
+type Plugin struct {
 	Deps
 
-	changeChannel chan datasync.ChangeEvent // Channel used by the watcher for change events.
-	resyncChannel chan datasync.ResyncEvent // Channel used by the watcher for resync events.
-	context       context.Context           // Used to cancel watching.
-	cancel        context.CancelFunc
-	watchDataReg  datasync.WatchRegistration // To subscribe on data change/resync events.
-	// Fields below are used to properly finish the example.
-	eventCounter  uint8
-	publisherDone bool
+	stopCh chan struct{}
+	wg     sync.WaitGroup
 
+	//k8sClientConfig *rest.Config
+	//k8sClientset    *kubernetes.Clientset
 	closeChannel chan struct{}
+	broker       KeyProtoValBroker
+	nDB		 	 Nodes
 }
 
 // Deps lists dependencies of ExamplePlugin.
@@ -113,33 +107,26 @@ type Deps struct {
 	Log          logging.PluginLogger
 	PluginConfig config.PluginConfig
 	ServiceLabel servicelabel.ReaderAPI
-	//local.PluginInfraDeps                             // injected
-	Publisher datasync.KeyProtoValWriter  // injected - To write ETCD data
-	Watcher   datasync.KeyValProtoWatcher // injected - To watch ETCD data
+
+	Getter *kvdbsync.Plugin
 }
 
+
+
 // Name implements PluginNamed
-func (p *ExamplePlugin) Name() string {
+func (p *Plugin) Name() string {
 	return PluginName
 }
 
 // Init starts the consumer.
-func (plugin *ExamplePlugin) Init() error {
+func (plugin *Plugin) Init() error {
 	// Initialize plugin fields.
-	plugin.resyncChannel = make(chan datasync.ResyncEvent)
-	plugin.changeChannel = make(chan datasync.ChangeEvent)
-	plugin.context, plugin.cancel = context.WithCancel(context.Background())
+	plugin.broker = plugin.Getter.KvPlugin.NewBroker("")
+	plugin.Log.Info("Initialization of the custom plugin for the contiv-crd example is completed")
+	plugin.nDB = NewNodesDB()
 
 	// Start the consumer (ETCD watcher).
 	go plugin.consumer()
-
-	// Subscribe watcher to be able to watch on data changes and resync events.
-	err := plugin.subscribeWatcher()
-	if err != nil {
-		return err
-	}
-
-	plugin.Log.Info("Initialization of the custom plugin for the datasync example is completed")
 
 	return nil
 }
@@ -147,162 +134,51 @@ func (plugin *ExamplePlugin) Init() error {
 // Close shutdowns both the publisher and the consumer.
 // Channels used to propagate data resync and data change events are closed
 // as well.
-func (plugin *ExamplePlugin) Close() error {
-	return safeclose.Close(plugin.Publisher, plugin.Watcher, plugin.resyncChannel, plugin.changeChannel)
+func (plugin *Plugin) Close() error {
+	return nil
 }
 
 // AfterInit starts the publisher and prepares for the shutdown.
-func (plugin *ExamplePlugin) AfterInit() error {
+func (plugin *Plugin) AfterInit() error {
 
-	go plugin.etcdPublisher()
-
-	go plugin.closeExample()
+	go plugin.closePlugin()
 
 	return nil
 }
 
-// etcdPublisher creates a simple data, then demonstrates CREATE and UPDATE
-// operations with ETCD.
-func (plugin *ExamplePlugin) etcdPublisher() {
-	// Wait for the consumer to initialize
-	time.Sleep(1 * time.Second)
-	plugin.Log.Print("KeyValPublisher started")
+func (plugin *Plugin) closePlugin() {
+	sigchan := make(chan os.Signal, 10)
+	signal.Notify(sigchan, os.Interrupt)
+	<-sigchan
+	log.Println("Program killed !")
 
-	// Convert data into the proto format.
-	exampleData := plugin.buildData("string1", 0, true)
+	// do last actions and wait for all write operations to end
 
-	// PUT: demonstrate how to use the Data Broker Put() API to store
-	// a simple data structure into ETCD.
-	label := etcdKeyPrefixLabel(plugin.ServiceLabel.GetAgentLabel(), "index")
-	plugin.Log.Infof("Write data to %v", label)
-	plugin.Publisher.Put(label, exampleData)
-
-	// Prepare different set of data.
-	plugin.Log.Infof("Update data at %v", label)
-	exampleData = plugin.buildData("string2", 1, false)
-
-	// UPDATE: demonstrate how use the Data Broker Put() API to change
-	// an already stored data in ETCD.
-	plugin.Publisher.Put(label, exampleData)
-
-	// Prepare another different set of data.
-	plugin.Log.Infof("Update data at %v", label)
-	exampleData = plugin.buildData("string3", 2, false)
-
-	// UPDATE: only to demonstrate Unregister functionality
-	plugin.Publisher.Put(label, exampleData)
-
-	// Wait for the consumer (change should not be passed to listener)
-	time.Sleep(2 * time.Second)
-
-	plugin.publisherDone = true
+	os.Exit(0)
 }
 
 // consumer (watcher) is subscribed to watch on data store changes.
 // Changes arrive via data change channel, get identified based on the key
 // and printed into the log.
-func (plugin *ExamplePlugin) consumer() {
-	plugin.Log.Print("KeyValProtoWatcher started")
-	for {
-		select {
-		// WATCH: demonstrate how to receive data change events.
-		case dataChng := <-plugin.changeChannel:
-			plugin.Log.Printf("Received event: %v", dataChng)
-			// If event arrives, the key is extracted and used together with
-			// the expected prefix to identify item.
-			key := dataChng.GetKey()
-			if strings.HasPrefix(key, etcdKeyPrefix(plugin.ServiceLabel.GetAgentLabel())) {
-				var value, previousValue etcdexample.EtcdExample
-				// The first return value is diff - boolean flag whether previous value exists or not
-				err := dataChng.GetValue(&value)
-				if err != nil {
-					plugin.Log.Error(err)
-				}
-				diff, err := dataChng.GetPrevValue(&previousValue)
-				if err != nil {
-					plugin.Log.Error(err)
-				}
-				plugin.Log.Infof("Event arrived to etcd eventHandler, key %v, update: %v, change type: %v,",
-					dataChng.GetKey(), diff, dataChng.GetChangeType())
-				// Increase event counter (expecting two events).
-				plugin.eventCounter++
+func (plugin *Plugin) consumer() {
+	plugin.Log.Print("KeyValProtoGetter started")
 
-				if plugin.eventCounter == 2 {
-					// After creating/updating data, unregister key
-					plugin.Log.Infof("Unregister key %v", etcdKeyPrefix(plugin.ServiceLabel.GetAgentLabel()))
-					plugin.watchDataReg.Unregister(etcdKeyPrefix(plugin.ServiceLabel.GetAgentLabel()))
-				}
-			}
-			// Here you would test for other event types with one if statement
-			// for each key prefix:
-			//
-			// if strings.HasPrefix(key, etcd prefix) { ... }
-
-			// Here you would also watch for resync events
-			// (not published in this example):
-			//
-			// case resyncEvent := <-plugin.ResyncEvent:
-			//   ...
-		case rs := <-plugin.resyncChannel:
-			// Resync event notification
-			plugin.Log.Infof("Resync event %v called", rs)
-			rs.Done(nil)
-		case <-plugin.context.Done():
-			plugin.Log.Debugf("Stop watching events")
-			return
-		}
-	}
-}
-
-// subscribeWatcher subscribes for data change and data resync events.
-// Events are delivered to the consumer via the selected channels.
-// ETCD watcher adapter is used to perform the registration behind the scenes.
-func (plugin *ExamplePlugin) subscribeWatcher() (err error) {
-	prefix := etcdKeyPrefix(plugin.ServiceLabel.GetAgentLabel())
-	plugin.Log.Infof("Prefix: %v", prefix)
-	plugin.watchDataReg, err = plugin.Watcher.
-		Watch("Example etcd plugin", plugin.changeChannel, plugin.resyncChannel, prefix)
+	messageList, err := plugin.broker.ListValues("/vnf-agent/contiv-ksr/allocatedIDs")
 	if err != nil {
-		return err
+		plugin.Log.Error("Error: ", err)
 	}
-
-	plugin.Log.Info("KeyValProtoWatcher subscribed")
-
-	return nil
-}
-
-func (plugin *ExamplePlugin) closeExample() {
-	for {
-		// Two events are expected for successful example completion.
-		if plugin.publisherDone {
-			if plugin.eventCounter != 2 {
-				plugin.Log.Error("etcd/datasync example failed", plugin.eventCounter)
-			}
-			// Close the watcher
-			plugin.cancel()
-			plugin.Log.Infof("etcd/datasync example finished, sending shutdown ...")
-			// Close the example
-			close(plugin.closeChannel)
+	for   {
+		message1, stop := messageList.GetNext()
+		protoMessage := &node.NodeInfo{}
+		if stop {
+			plugin.Log.Info("No more data under: ",messageList)
 			break
 		}
+		err = message1.GetValue(protoMessage)
+		if err != nil {
+			plugin.Log.Error("Error in getting value of iterator: ", err)
+		}
+		plugin.Log.Infof("Getting data under %t : %+v", messageList, protoMessage )
 	}
-}
 
-// Create simple ETCD data structure with provided data values.
-func (plugin *ExamplePlugin) buildData(stringVal string, uint32Val uint32, boolVal bool) *etcdexample.EtcdExample {
-	return &etcdexample.EtcdExample{
-		StringVal: stringVal,
-		Uint32Val: uint32Val,
-		BoolVal:   boolVal,
-	}
-}
-
-// The ETCD key prefix used for this example
-func etcdKeyPrefix(agentLabel string) string {
-	return "/vnf-agent/" + agentLabel + "/api/v1/example/db/simple/"
-}
-
-// The ETCD key (the key prefix + label)
-func etcdKeyPrefixLabel(agentLabel string, index string) string {
-	return etcdKeyPrefix(agentLabel) + index
 }
