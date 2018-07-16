@@ -123,7 +123,7 @@ func (plugin *Plugin) Init() error {
 	// Initialize plugin fields.
 	plugin.broker = plugin.Getter.KvPlugin.NewBroker("")
 	plugin.Log.Info("Initialization of the custom plugin for the contiv-crd example is completed")
-	plugin.nDB = NewNodesDB()
+	plugin.nDB = NewNodesDB(plugin.Log)
 
 	// Start the consumer (ETCD watcher).
 	go plugin.consumer()

@@ -1,43 +1,69 @@
 package main
 
+import (
+	"sort"
+	"github.com/ligato/cn-infra/logging"
+)
+
 type Node struct {
-	IPAdr 	 string
+	ID       int
+	IPAdr    string
 	ManIPAdr string
+	Name     string
 }
 
 type Nodes interface {
-	AddNode(nodeName, IPAdr, ManIPAdr string) error
+	AddNode(ID int, nodeName, IPAdr, ManIPAdr string) error
 	DeleteNode(key string) error
-	GetNode(key string) (error, Node)
+	GetNode(key string) (*Node, error)
 }
 
 type NodesDB struct {
-  nMap map[string]Node
+	nMap   map[string]Node
+	logger logging.PluginLogger
 }
 
-func NewNodesDB()(n *NodesDB) {
-	return &NodesDB{make(map[string]Node)}
+func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
+	return &NodesDB{make(map[string]Node), logger}
 }
 
-func (nDB *NodesDB)GetNode(key string) (n *Node, err error) {
-node,ok := nDB.nMap[key]
+func (nDB *NodesDB) GetNode(key string) (n *Node, err error) {
+	node, ok := nDB.nMap[key]
 	if !ok {
 		return nil, err
 	}
-	return &node,nil
+	return &node, nil
 }
 
-func (nDB *NodesDB)DeleteNode(key string) error {
+func (nDB *NodesDB) DeleteNode(key string) error {
 	_, ok := nDB.nMap[key]
-	if !ok{
+	if !ok {
 		return nil
 	}
-	delete(nDB.nMap,key)
+	delete(nDB.nMap, key)
 	return nil
 }
 
-func (nDB *NodesDB)AddNode(nodeName, IPAdr, ManIPAdr string) error {
-	n:= Node{IPAdr:IPAdr, ManIPAdr:ManIPAdr}
+func (nDB *NodesDB) AddNode(ID int, nodeName, IPAdr, ManIPAdr string) error {
+	n := Node{IPAdr: IPAdr, ManIPAdr: ManIPAdr, ID: ID, Name: nodeName}
+	_, err := nDB.GetNode(nodeName)
+	if err != nil {
+		return err
+	}
 	nDB.nMap[nodeName] = n
 	return nil
+}
+
+func (nDB *NodesDB) GetAllNodes() []*Node {
+	var str []string
+	for k := range nDB.nMap   {
+		str = append(str, k)
+	}
+	var nList []*Node
+	sort.Strings(str)
+	for _ ,v := range str {
+		n , _ := nDB.GetNode(v)
+		nList = append(nList, n)
+	}
+	return nList
 }
