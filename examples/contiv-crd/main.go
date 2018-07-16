@@ -178,7 +178,7 @@ func (plugin *Plugin) consumer() {
 		if err != nil {
 			plugin.Log.Error("Error in getting value of iterator: ", err)
 		}
-		plugin.Log.Infof("Getting data under %t : %+v", messageList, protoMessage )
+		plugin.Log.Infof("Getting data under %+v : %+v", messageList, protoMessage )
 	}
 
 }
