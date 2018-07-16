@@ -31,7 +31,7 @@ func TestNodesDB_GetNode(t *testing.T) {
 	gomega.Expect(ok).To(gomega.BeNil())
 	gomega.Expect(node.IPAdr).To(gomega.Equal("10"))
 	gomega.Expect(node.Name).To(gomega.Equal("k8s_master"))
-	gomega.Expect(node.ID).To(gomega.Equal(1))
+	gomega.Expect(node.ID).To(gomega.Equal(uint32(1)))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 
 
@@ -71,7 +71,7 @@ func TestNodesDB_GetAllNodes(t *testing.T) {
 	gomega.Expect(ok).To(gomega.BeNil())
 	gomega.Expect(node.IPAdr).To(gomega.Equal("10"))
 	gomega.Expect(node.Name).To(gomega.Equal("k8s_master"))
-	gomega.Expect(node.ID).To(gomega.Equal(1))
+	gomega.Expect(node.ID).To(gomega.Equal(uint32(1)))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 
 
@@ -80,7 +80,7 @@ func TestNodesDB_GetAllNodes(t *testing.T) {
 	gomega.Expect(ok).To(gomega.BeNil())
 	gomega.Expect(node.IPAdr).To(gomega.Equal("10"))
 	gomega.Expect(node.Name).To(gomega.Equal("k8s_master2"))
-	gomega.Expect(node.ID).To(gomega.Equal(2))
+	gomega.Expect(node.ID).To(gomega.Equal(uint32(2)))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 
 	db.AddNode(3,"Ak8s_master3","10","10")
@@ -88,7 +88,7 @@ func TestNodesDB_GetAllNodes(t *testing.T) {
 	gomega.Expect(ok).To(gomega.BeNil())
 	gomega.Expect(node.IPAdr).To(gomega.Equal("10"))
 	gomega.Expect(node.Name).To(gomega.Equal("Ak8s_master3"))
-	gomega.Expect(node.ID).To(gomega.Equal(3))
+	gomega.Expect(node.ID).To(gomega.Equal(uint32(3)))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 
 	nodeList := db.GetAllNodes()

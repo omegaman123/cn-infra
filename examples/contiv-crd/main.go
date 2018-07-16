@@ -8,16 +8,20 @@ import (
 
 	"sync"
 
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
+
+	"github.com/golang/protobuf/proto"
 	"github.com/ligato/cn-infra/agent"
 	"github.com/ligato/cn-infra/config"
-	"github.com/ligato/cn-infra/datasync/kvdbsync"
-	"github.com/ligato/cn-infra/db/keyval/etcd"
-	"github.com/ligato/cn-infra/logging"
-	"github.com/golang/protobuf/proto"
-	"github.com/ligato/cn-infra/servicelabel"
-	"github.com/ligato/cn-infra/examples/contiv-crd/model"
 	"github.com/ligato/cn-infra/datasync"
+	"github.com/ligato/cn-infra/datasync/kvdbsync"
 	"github.com/ligato/cn-infra/db/keyval"
+	"github.com/ligato/cn-infra/db/keyval/etcd"
+	"github.com/ligato/cn-infra/examples/contiv-crd/model"
+	"github.com/ligato/cn-infra/logging"
+	"github.com/ligato/cn-infra/servicelabel"
 )
 
 // *************************************************************************
@@ -31,10 +35,10 @@ import (
 // ************************************************************************/
 
 const (
-	PluginName = "contiv-crd"
+	PluginName   = "contiv-crd"
+	LivenessPort = ":9999"
+	LivessURL    = "/liveness"
 )
-
-
 
 func main() {
 
@@ -99,7 +103,8 @@ type Plugin struct {
 	//k8sClientset    *kubernetes.Clientset
 	closeChannel chan struct{}
 	broker       KeyProtoValBroker
-	nDB		 	 Nodes
+	nodeDB       Nodes
+	dbChannel    chan NodeLivenessDTO
 }
 
 // Deps lists dependencies of ExamplePlugin.
@@ -111,8 +116,6 @@ type Deps struct {
 	Getter *kvdbsync.Plugin
 }
 
-
-
 // Name implements PluginNamed
 func (p *Plugin) Name() string {
 	return PluginName
@@ -123,7 +126,7 @@ func (plugin *Plugin) Init() error {
 	// Initialize plugin fields.
 	plugin.broker = plugin.Getter.KvPlugin.NewBroker("")
 	plugin.Log.Info("Initialization of the custom plugin for the contiv-crd example is completed")
-	plugin.nDB = NewNodesDB(plugin.Log)
+	plugin.nodeDB = NewNodesDB(plugin.Log)
 
 	// Start the consumer (ETCD watcher).
 	go plugin.consumer()
@@ -167,18 +170,48 @@ func (plugin *Plugin) consumer() {
 	if err != nil {
 		plugin.Log.Error("Error: ", err)
 	}
-	for   {
+	for {
 		message1, stop := messageList.GetNext()
 		protoMessage := &node.NodeInfo{}
 		if stop {
-			plugin.Log.Info("No more data under: ",messageList)
+			plugin.Log.Info("No more data under: ", messageList)
 			break
 		}
 		err = message1.GetValue(protoMessage)
 		if err != nil {
 			plugin.Log.Error("Error in getting value of iterator: ", err)
+			continue
 		}
-		plugin.Log.Infof("Getting data under %+v : %+v", messageList, protoMessage )
+		plugin.Log.Infof("Getting data under %+v : %+v", messageList, protoMessage)
+		plugin.nodeDB.AddNode(protoMessage.Id, protoMessage.Name, protoMessage.IpAddress, protoMessage.ManagementIpAddress)
+	}
+	//Rest client
+	nodeList := plugin.nodeDB.GetAllNodes()
+	plugin.dbChannel = make(chan NodeLivenessDTO)
+	for _, node := range nodeList {
+		go func() {
+			res, err := http.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
+			plugin.Log.Info("Got a response: ", res)
+			if err != nil {
+				plugin.Log.Error(err)
+			}
+			b, _ := ioutil.ReadAll(res.Body)
+			b = []byte(b)
+			nodeInfo := &NodeLiveness{}
+			json.Unmarshal(b, nodeInfo)
+			plugin.Log.Info(node.NodeInfo)
+			plugin.dbChannel <- NodeLivenessDTO{nodeName: node.Name, NodeInfo: nodeInfo}
+		}()
+
+	}
+	for i := 0; i < len(nodeList); i++ {
+		nodeInfo := <-plugin.dbChannel
+		plugin.nodeDB.SetNodeInfo(nodeInfo.nodeName, nodeInfo.NodeInfo)
+	}
+
+	for _, node := range nodeList {
+		plugin.Log.Infof("Node info: %+v NodeLivness: %+v", node, node.NodeInfo)
+
 	}
 
 }
