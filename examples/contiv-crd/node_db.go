@@ -20,20 +20,20 @@ type Nodes interface {
 }
 
 type NodesDB struct {
-	nMap   map[string]Node
+	nMap   map[string]*Node
 	logger logging.PluginLogger
 }
 
 
 func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
-	return &NodesDB{make(map[string]Node), logger}
+	return &NodesDB{make(map[string]*Node), logger}
 }
 
 //Returns a pointer to a node for the given key.
 //Returns an error if that key is not found.
 func (nDB *NodesDB) GetNode(key string) (n *Node, err error) {
 	if node, ok := nDB.nMap[key]; ok {
-		return &node, nil
+		return node, nil
 	}
 	err = errors.Errorf("value with given key not found: %s",key)
 	return nil, err
@@ -53,7 +53,7 @@ func (nDB *NodesDB) DeleteNode(key string) error {
 //Adds a new node with the given information.
 //Returns an error if the node is already in the database
 func (nDB *NodesDB) AddNode(ID int, nodeName, IPAdr, ManIPAdr string) error {
-	n := Node{IPAdr: IPAdr, ManIPAdr: ManIPAdr, ID: ID, Name: nodeName}
+	n := &Node{IPAdr: IPAdr, ManIPAdr: ManIPAdr, ID: ID, Name: nodeName}
 	_, err := nDB.GetNode(nodeName)
 	if err == nil {
 		err = errors.Errorf("duplicate key found: %s",nodeName)
