@@ -5,6 +5,8 @@ import (
 	"github.com/onsi/gomega"
 )
 
+//Checks adding a new node.
+//Checks expected error for adding duplicate node.
 func TestNodesDB_AddNode(t *testing.T) {
 		gomega.RegisterTestingT(t)
 		db := NewNodesDB(nil)
@@ -19,6 +21,8 @@ func TestNodesDB_AddNode(t *testing.T) {
 
 }
 
+//Checks adding a node and then looking it up.
+//Checks looking up a non-existent key.
 func TestNodesDB_GetNode(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	db := NewNodesDB(nil)
@@ -36,6 +40,8 @@ func TestNodesDB_GetNode(t *testing.T) {
 	gomega.Expect(nodeTwo).To(gomega.BeNil())
 }
 
+//Checks adding a node and then deleting it.
+//Checks whether expected error is returned when deleting non-existent key.
 func TestNodesDB_DeleteNode(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	db := NewNodesDB(nil)
@@ -55,6 +61,8 @@ func TestNodesDB_DeleteNode(t *testing.T) {
 
 }
 
+//Creates 3 new nodes and adds them to a database.
+//Then, the list is checked to see if it is in order.
 func TestNodesDB_GetAllNodes(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	db := NewNodesDB(nil)
@@ -75,16 +83,17 @@ func TestNodesDB_GetAllNodes(t *testing.T) {
 	gomega.Expect(node.ID).To(gomega.Equal(2))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 
-	db.AddNode(3,"k8s_master3","10","10")
-	node, ok = db.GetNode("k8s_master3")
+	db.AddNode(3,"Ak8s_master3","10","10")
+	node, ok = db.GetNode("Ak8s_master3")
 	gomega.Expect(ok).To(gomega.BeNil())
 	gomega.Expect(node.IPAdr).To(gomega.Equal("10"))
-	gomega.Expect(node.Name).To(gomega.Equal("k8s_master3"))
+	gomega.Expect(node.Name).To(gomega.Equal("Ak8s_master3"))
 	gomega.Expect(node.ID).To(gomega.Equal(3))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 
 	nodeList := db.GetAllNodes()
 	gomega.Expect(len(nodeList)).To(gomega.Equal(3))
+	gomega.Expect(nodeList[0].Name).To(gomega.Equal("Ak8s_master3"))
 
 
 }
