@@ -3,6 +3,7 @@ package main
 import (
 	"sort"
 	"github.com/ligato/cn-infra/logging"
+	"github.com/pkg/errors"
 )
 type Node struct {
 	ID       int
@@ -31,19 +32,19 @@ func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
 //Returns a pointer to a node for the given key.
 //Returns an error if that key is not found.
 func (nDB *NodesDB) GetNode(key string) (n *Node, err error) {
-	node, ok := nDB.nMap[key]
-	if !ok {
-		return nil, err
+	if node, ok := nDB.nMap[key]; ok {
+		return &node, nil
 	}
-	return &node, nil
+	err = errors.Errorf("value with given key not found: %s",key)
+	return nil, err
 }
 
-//Deletes a key with the given key.
+//Deletes node with the given key.
 //Returns an error if the key is not found.
 func (nDB *NodesDB) DeleteNode(key string) error {
-	_, ok := nDB.nMap[key]
-	if !ok {
-		return nil
+	_, err := nDB.GetNode(key)
+	if err!=nil {
+		return err
 	}
 	delete(nDB.nMap, key)
 	return nil
@@ -54,14 +55,15 @@ func (nDB *NodesDB) DeleteNode(key string) error {
 func (nDB *NodesDB) AddNode(ID int, nodeName, IPAdr, ManIPAdr string) error {
 	n := Node{IPAdr: IPAdr, ManIPAdr: ManIPAdr, ID: ID, Name: nodeName}
 	_, err := nDB.GetNode(nodeName)
-	if err != nil {
+	if err == nil {
+		err = errors.Errorf("duplicate key found: %s",nodeName)
 		return err
 	}
 	nDB.nMap[nodeName] = n
 	return nil
 }
 
-//Returns an ordered slice of all nodes in a database.
+//Returns an ordered slice of all nodes in a database organized by name.
 func (nDB *NodesDB) GetAllNodes() []*Node {
 	var str []string
 	for k := range nDB.nMap   {
