@@ -192,7 +192,7 @@ func (plugin *Plugin) consumer() {
 	}
 	//Rest client
 	nodeList := plugin.nodeDB.GetAllNodes()
-	plugin.nLChannel = make(chan NodeLivenessDTO)
+	plugin.nDBChannel = make(chan interface{})
 	for _, node := range nodeList {
 		client := http.Client{
 			Transport:     nil,
@@ -202,10 +202,10 @@ func (plugin *Plugin) consumer() {
 		}
 		go func(client http.Client) {
 			res, err := client.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
-			plugin.Log.Info("liveness got a response: ", res)
 			if err != nil {
 				plugin.Log.Error(err)
 				plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, NodeInfo: nil}
+				return
 			}
 			b, _ := ioutil.ReadAll(res.Body)
 			b = []byte(b)
@@ -218,10 +218,10 @@ func (plugin *Plugin) consumer() {
 
 		go func(client http.Client) {
 			res, err := client.Get("http://" + node.ManIPAdr + InterfacePort + InterfaceURL)
-			plugin.Log.Info("interface got a response: ", res)
 			if err != nil {
 				plugin.Log.Error(err)
 				plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nil}
+				return
 			}
 			b, _ := ioutil.ReadAll(res.Body)
 			b = []byte(b)
@@ -229,7 +229,6 @@ func (plugin *Plugin) consumer() {
 
 			nodeInterfaces := make(map[int]NodeInterface, 0)
 			json.Unmarshal(b, &nodeInterfaces)
-			plugin.Log.Infof("Received interface data: %v", nodeInterfaces)
 			plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nodeInterfaces}
 		}(client)
 
@@ -241,7 +240,6 @@ func (plugin *Plugin) consumer() {
 			nlDto := data.(NodeLivenessDTO)
 			plugin.nodeDB.SetNodeInfo(nlDto.nodeName, nlDto.NodeInfo)
 		case NodeInterfacesDTO:
-			plugin.Log.Info("Received NodeInterfaceDTO")
 			//niDto := data.(NodeInterfacesDTO)
 			//plugin.nodeDB.SetNodeInterfaces(niDto.nodeName, niDto.nodeIn)
 		default:
@@ -250,7 +248,7 @@ func (plugin *Plugin) consumer() {
 	}
 
 	for _, node := range nodeList {
-		plugin.Log.Infof("Node info: %+v \nNodeLivness: %+v \nNodeInterfaces: %+v", node, node.NodeLiveness, node.NodeInterfaces)
+		plugin.Log.Infof("Node info: %+v \n NodeLivness: %+v \n NodeInterfaces: %+v", node, node.NodeLiveness, node.NodeInterfaces)
 
 	}
 
