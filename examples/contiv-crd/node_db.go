@@ -7,28 +7,48 @@ import (
 	"github.com/pkg/errors"
 )
 
-//const name  =
 type Node struct {
-	ID       uint32
-	IPAdr    string
-	ManIPAdr string
-	Name     string
-	NodeInfo *NodeLiveness
+	ID             uint32
+	IPAdr          string
+	ManIPAdr       string
+	Name           string
+	NodeLiveness   *NodeLiveness
+	NodeInterfaces []NodeInterface
 }
 
 type NodeLiveness struct {
-	Build_version string `json:"build_version"`
-	Build_date    string `json:"build_date"`
-	State         uint32 `json:"state"`
-	Start_time    uint32 `json:"start_time"`
-	Last_change   uint32 `json:"last_change"`
-	Last_update   uint32 `json:"last_update"`
-	Commit_hash   string `json:"commit_hash"`
+	BuildVersion string `json:"build_version"`
+	BuildDate    string `json:"build_date"`
+	State        uint32 `json:"state"`
+	StartTime    uint32 `json:"start_time"`
+	LastChange   uint32 `json:"last_change"`
+	LastUpdate   uint32 `json:"last_update"`
+	CommitHash   string `json:"commit_hash"`
 }
 
 type NodeLivenessDTO struct {
 	nodeName string
 	NodeInfo *NodeLiveness
+}
+
+type NodeInterface struct {
+	VppInternalName string   `json:"vpp_internal_name"`
+	Name            string   `json:"name"`
+	IfType          uint32   `json:"type,omitempty"`
+	Enabled         bool     `json:"enabled"`
+	PhysAddress     string   `json:"phys_address"`
+	Mtu             uint32   `json:"mtu,omitempty"`
+	IpAddresses     []string `json:"ip_addresses"`
+	Tap             tap      `json:"tap,omitempty"`
+}
+type tap struct {
+	Version    uint32 `json:"version"`
+	HostIfName string `json:"host_if_name"`
+}
+
+type NodeInterfacesDTO struct {
+	nodeName string
+	nodeInfo map[int]NodeInterface
 }
 
 type Nodes interface {
@@ -37,6 +57,7 @@ type Nodes interface {
 	GetNode(key string) (*Node, error)
 	GetAllNodes() []*Node
 	SetNodeInfo(name string, nL *NodeLiveness) error
+	SetNodeInterfaces(name string, nInt []NodeInterface) error
 }
 
 type NodesDB struct {
@@ -53,8 +74,18 @@ func (nDb *NodesDB) SetNodeInfo(name string, nL *NodeLiveness) error {
 	if err != nil {
 		return err
 	}
-	node.NodeInfo = nL
+	node.NodeLiveness = nL
 	return nil
+}
+
+func (nDB *NodesDB) SetNodeInterfaces(name string, nInt []NodeInterface) error {
+	node, err := nDB.GetNode(name)
+	if err != nil {
+		return err
+	}
+	node.NodeInterfaces = nInt
+	return nil
+
 }
 
 //Returns a pointer to a node for the given key.

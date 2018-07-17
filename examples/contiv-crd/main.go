@@ -35,9 +35,12 @@ import (
 // ************************************************************************/
 
 const (
-	PluginName   = "contiv-crd"
-	LivenessPort = ":9999"
-	LivessURL    = "/liveness"
+	PluginName    = "contiv-crd"
+	LivenessPort  = ":9999"
+	LivessURL     = "/liveness"
+	Timeout       = 1000000000
+	InterfacePort = ":9999"
+	InterfaceURL  = "/interfaces"
 )
 
 func main() {
@@ -104,7 +107,9 @@ type Plugin struct {
 	closeChannel chan struct{}
 	broker       KeyProtoValBroker
 	nodeDB       Nodes
-	dbChannel    chan NodeLivenessDTO
+	nLChannel    chan NodeLivenessDTO
+	intfChannel  chan NodeInterfacesDTO
+	nDBChannel   chan interface{}
 }
 
 // Deps lists dependencies of ExamplePlugin.
@@ -187,30 +192,65 @@ func (plugin *Plugin) consumer() {
 	}
 	//Rest client
 	nodeList := plugin.nodeDB.GetAllNodes()
-	plugin.dbChannel = make(chan NodeLivenessDTO)
+	plugin.nLChannel = make(chan NodeLivenessDTO)
 	for _, node := range nodeList {
-		go func() {
-			res, err := http.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
-			plugin.Log.Info("Got a response: ", res)
+		client := http.Client{
+			Transport:     nil,
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       Timeout,
+		}
+		go func(client http.Client) {
+			res, err := client.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
+			plugin.Log.Info("liveness got a response: ", res)
 			if err != nil {
 				plugin.Log.Error(err)
+				plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, NodeInfo: nil}
 			}
 			b, _ := ioutil.ReadAll(res.Body)
 			b = []byte(b)
+			plugin.Log.Info(b)
 			nodeInfo := &NodeLiveness{}
 			json.Unmarshal(b, nodeInfo)
-			plugin.Log.Info(node.NodeInfo)
-			plugin.dbChannel <- NodeLivenessDTO{nodeName: node.Name, NodeInfo: nodeInfo}
-		}()
+			plugin.Log.Info(node.NodeLiveness)
+			plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, NodeInfo: nodeInfo}
+		}(client)
+
+		go func(client http.Client) {
+			res, err := client.Get("http://" + node.ManIPAdr + InterfacePort + InterfaceURL)
+			plugin.Log.Info("interface got a response: ", res)
+			if err != nil {
+				plugin.Log.Error(err)
+				plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nil}
+			}
+			b, _ := ioutil.ReadAll(res.Body)
+			b = []byte(b)
+			plugin.Log.Info(b)
+
+			nodeInterfaces := make(map[int]NodeInterface, 0)
+			json.Unmarshal(b, &nodeInterfaces)
+			plugin.Log.Infof("Received interface data: %v", nodeInterfaces)
+			plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nodeInterfaces}
+		}(client)
 
 	}
-	for i := 0; i < len(nodeList); i++ {
-		nodeInfo := <-plugin.dbChannel
-		plugin.nodeDB.SetNodeInfo(nodeInfo.nodeName, nodeInfo.NodeInfo)
+	for i := 0; i < 2*len(nodeList); i++ {
+		data := <-plugin.nDBChannel
+		switch data.(type) {
+		case NodeLivenessDTO:
+			nlDto := data.(NodeLivenessDTO)
+			plugin.nodeDB.SetNodeInfo(nlDto.nodeName, nlDto.NodeInfo)
+		case NodeInterfacesDTO:
+			plugin.Log.Info("Received NodeInterfaceDTO")
+			//niDto := data.(NodeInterfacesDTO)
+			//plugin.nodeDB.SetNodeInterfaces(niDto.nodeName, niDto.nodeIn)
+		default:
+			plugin.Log.Error("Unknown data type")
+		}
 	}
 
 	for _, node := range nodeList {
-		plugin.Log.Infof("Node info: %+v NodeLivness: %+v", node, node.NodeInfo)
+		plugin.Log.Infof("Node info: %+v \nNodeLivness: %+v \nNodeInterfaces: %+v", node, node.NodeLiveness, node.NodeInterfaces)
 
 	}
 
