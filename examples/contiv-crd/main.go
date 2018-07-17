@@ -8,10 +8,6 @@ import (
 
 	"sync"
 
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
-
 	"sort"
 
 	"github.com/golang/protobuf/proto"
@@ -111,8 +107,6 @@ type Plugin struct {
 	closeChannel chan struct{}
 	broker       KeyProtoValBroker
 	nodeDB       Nodes
-	nLChannel    chan NodeLivenessDTO
-	intfChannel  chan NodeInterfacesDTO
 	nDBChannel   chan interface{}
 }
 
@@ -173,6 +167,7 @@ func (plugin *Plugin) closePlugin() {
 // Changes arrive via data change channel, get identified based on the key
 // and printed into the log.
 func (plugin *Plugin) consumer() {
+
 	plugin.Log.Print("KeyValProtoGetter started")
 
 	messageList, err := plugin.broker.ListValues("/vnf-agent/contiv-ksr/allocatedIDs")
@@ -197,59 +192,8 @@ func (plugin *Plugin) consumer() {
 	//Rest client
 	nodeList := plugin.nodeDB.GetAllNodes()
 	plugin.nDBChannel = make(chan interface{})
-	for _, node := range nodeList {
-		client := http.Client{
-			Transport:     nil,
-			CheckRedirect: nil,
-			Jar:           nil,
-			Timeout:       Timeout,
-		}
-		go func(client http.Client) {
-			res, err := client.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
-			if err != nil {
-				plugin.Log.Error(err)
-				plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, nodeInfo: nil}
-				return
-			}
-			b, _ := ioutil.ReadAll(res.Body)
-			b = []byte(b)
-			nodeInfo := &NodeLiveness{}
-			json.Unmarshal(b, nodeInfo)
-			plugin.Log.Info(node.NodeLiveness)
-			plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, nodeInfo: nodeInfo}
-		}(client)
+	plugin.collectAgentInfo()
 
-		go func(client http.Client) {
-			res, err := client.Get("http://" + node.ManIPAdr + InterfacePort + InterfaceURL)
-			if err != nil {
-				plugin.Log.Error(err)
-				plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nil}
-				return
-			}
-			b, _ := ioutil.ReadAll(res.Body)
-			b = []byte(b)
-
-			nodeInterfaces := make(map[int]NodeInterface, 0)
-			json.Unmarshal(b, &nodeInterfaces)
-			plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nodeInterfaces}
-		}(client)
-
-		go func(client http.Client) {
-			res, err := client.Get("http://" + node.ManIPAdr + BridgeDomainsPort + BridgeDomainURL)
-			if err != nil {
-				plugin.Log.Error(err)
-				plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nil}
-				return
-			}
-			b, _ := ioutil.ReadAll(res.Body)
-			b = []byte(b)
-
-			nodeBridgeDomains := make(map[int]NodeBridgeDomains)
-			json.Unmarshal(b, &nodeBridgeDomains)
-			plugin.nDBChannel <- NodeBridgeDomainsDTO{nodeName: node.Name, nodeInfo: nodeBridgeDomains}
-
-		}(client)
-	}
 	for i := 0; i < 3*len(nodeList); i++ {
 		data := <-plugin.nDBChannel
 		switch data.(type) {
