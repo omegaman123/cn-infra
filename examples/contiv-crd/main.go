@@ -12,6 +12,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"sort"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/ligato/cn-infra/agent"
 	"github.com/ligato/cn-infra/config"
@@ -209,7 +211,6 @@ func (plugin *Plugin) consumer() {
 			}
 			b, _ := ioutil.ReadAll(res.Body)
 			b = []byte(b)
-			plugin.Log.Info(b)
 			nodeInfo := &NodeLiveness{}
 			json.Unmarshal(b, nodeInfo)
 			plugin.Log.Info(node.NodeLiveness)
@@ -225,7 +226,6 @@ func (plugin *Plugin) consumer() {
 			}
 			b, _ := ioutil.ReadAll(res.Body)
 			b = []byte(b)
-			plugin.Log.Info(b)
 
 			nodeInterfaces := make(map[int]NodeInterface, 0)
 			json.Unmarshal(b, &nodeInterfaces)
@@ -240,15 +240,25 @@ func (plugin *Plugin) consumer() {
 			nlDto := data.(NodeLivenessDTO)
 			plugin.nodeDB.SetNodeInfo(nlDto.nodeName, nlDto.NodeInfo)
 		case NodeInterfacesDTO:
-			//niDto := data.(NodeInterfacesDTO)
-			//plugin.nodeDB.SetNodeInterfaces(niDto.nodeName, niDto.nodeIn)
+			var intsl []int
+			nodeinterfaces := make([]NodeInterface, 0)
+			niDto := data.(NodeInterfacesDTO)
+			for itf := range niDto.nodeInfo {
+				intsl = append(intsl, itf)
+			}
+			sort.Ints(intsl)
+			for _, itf := range intsl {
+				nodeinterfaces = append(nodeinterfaces, niDto.nodeInfo[itf])
+			}
+			plugin.nodeDB.SetNodeInterfaces(niDto.nodeName, nodeinterfaces)
+
 		default:
 			plugin.Log.Error("Unknown data type")
 		}
 	}
 
 	for _, node := range nodeList {
-		plugin.Log.Infof("Node info: %+v \n NodeLivness: %+v \n NodeInterfaces: %+v", node, node.NodeLiveness, node.NodeInterfaces)
+		plugin.Log.Infof("Node info: %+v NodeLiveness: %+v NodeInterfaces: %v", node, node.NodeLiveness, node.NodeInterfaces)
 
 	}
 

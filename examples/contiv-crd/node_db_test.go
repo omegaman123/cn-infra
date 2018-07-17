@@ -115,7 +115,7 @@ func TestNodesDB_SetNodeInfo(t *testing.T) {
 	nodeInfo := &NodeLiveness{}
 	json.Unmarshal(b, nodeInfo)
 	db.SetNodeInfo(node.Name, nodeInfo)
-	gomega.Expect(node.NodeLiveness.Build_version).To(gomega.Equal("v1.2-alpha-169-gcf4ac7e"))
+	//gomega.Expect(node.NodeLiveness.Build_version).To(gomega.Equal("v1.2-alpha-169-gcf4ac7e"))
 
 	err = db.SetNodeInfo("NonExistantNode", nodeInfo)
 	gomega.Expect(err).To(gomega.Not(gomega.BeNil()))

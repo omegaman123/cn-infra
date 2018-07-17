@@ -35,10 +35,10 @@ type NodeInterface struct {
 	VppInternalName string   `json:"vpp_internal_name"`
 	Name            string   `json:"name"`
 	IfType          uint32   `json:"type,omitempty"`
-	Enabled         bool     `json:"enabled"`
-	PhysAddress     string   `json:"phys_address"`
+	Enabled         bool     `json:"enabled,omitempty"`
+	PhysAddress     string   `json:"phys_address,omitempty"`
 	Mtu             uint32   `json:"mtu,omitempty"`
-	IpAddresses     []string `json:"ip_addresses"`
+	IpAddresses     []string `json:"ip_addresses,omitempty"`
 	Tap             tap      `json:"tap,omitempty"`
 }
 type tap struct {
