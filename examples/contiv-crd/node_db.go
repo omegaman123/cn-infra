@@ -8,12 +8,13 @@ import (
 )
 
 type Node struct {
-	ID             uint32
-	IPAdr          string
-	ManIPAdr       string
-	Name           string
-	NodeLiveness   *NodeLiveness
-	NodeInterfaces []NodeInterface
+	ID                uint32
+	IPAdr             string
+	ManIPAdr          string
+	Name              string
+	NodeLiveness      *NodeLiveness
+	NodeInterfaces    []NodeInterface
+	NodeBridgeDomains []NodeBridgeDomains
 }
 
 type NodeLiveness struct {
@@ -28,7 +29,7 @@ type NodeLiveness struct {
 
 type NodeLivenessDTO struct {
 	nodeName string
-	NodeInfo *NodeLiveness
+	nodeInfo *NodeLiveness
 }
 
 type NodeInterface struct {
@@ -50,6 +51,19 @@ type NodeInterfacesDTO struct {
 	nodeName string
 	nodeInfo map[int]NodeInterface
 }
+type NodeBridgeDomains struct {
+	Interfaces []bdinterfaces `json:"interfaces"`
+	Name       string         `json:"name"`
+	Forward    bool           `json:"forward"`
+}
+type bdinterfaces struct {
+	SwIfIndex uint32 `json:"sw_if_index"`
+}
+
+type NodeBridgeDomainsDTO struct {
+	nodeName string
+	nodeInfo map[int]NodeBridgeDomains
+}
 
 type Nodes interface {
 	AddNode(ID uint32, nodeName, IPAdr, ManIPAdr string) error
@@ -58,6 +72,7 @@ type Nodes interface {
 	GetAllNodes() []*Node
 	SetNodeInfo(name string, nL *NodeLiveness) error
 	SetNodeInterfaces(name string, nInt []NodeInterface) error
+	SetNodeBridgeDomain(name string, nBridge []NodeBridgeDomains) error
 }
 
 type NodesDB struct {
@@ -69,12 +84,12 @@ func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
 	return &NodesDB{make(map[string]*Node), logger}
 }
 
-func (nDb *NodesDB) SetNodeInfo(name string, nL *NodeLiveness) error {
+func (nDb *NodesDB) SetNodeInfo(name string, nLive *NodeLiveness) error {
 	node, err := nDb.GetNode(name)
 	if err != nil {
 		return err
 	}
-	node.NodeLiveness = nL
+	node.NodeLiveness = nLive
 	return nil
 }
 
@@ -86,6 +101,14 @@ func (nDB *NodesDB) SetNodeInterfaces(name string, nInt []NodeInterface) error {
 	node.NodeInterfaces = nInt
 	return nil
 
+}
+func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge []NodeBridgeDomains) error {
+	node, err := nDB.GetNode(name)
+	if err != nil {
+		return err
+	}
+	node.NodeBridgeDomains = nBridge
+	return nil
 }
 
 //Returns a pointer to a node for the given key.

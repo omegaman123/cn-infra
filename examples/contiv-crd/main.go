@@ -37,12 +37,14 @@ import (
 // ************************************************************************/
 
 const (
-	PluginName    = "contiv-crd"
-	LivenessPort  = ":9999"
-	LivessURL     = "/liveness"
-	Timeout       = 1000000000
-	InterfacePort = ":9999"
-	InterfaceURL  = "/interfaces"
+	PluginName        = "contiv-crd"
+	LivenessPort      = ":9999"
+	LivessURL         = "/liveness"
+	Timeout           = 1000000000
+	InterfacePort     = ":9999"
+	InterfaceURL      = "/interfaces"
+	BridgeDomainsPort = ":9999"
+	BridgeDomainURL   = "/bridgedomains"
 )
 
 func main() {
@@ -206,7 +208,7 @@ func (plugin *Plugin) consumer() {
 			res, err := client.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
 			if err != nil {
 				plugin.Log.Error(err)
-				plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, NodeInfo: nil}
+				plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, nodeInfo: nil}
 				return
 			}
 			b, _ := ioutil.ReadAll(res.Body)
@@ -214,7 +216,7 @@ func (plugin *Plugin) consumer() {
 			nodeInfo := &NodeLiveness{}
 			json.Unmarshal(b, nodeInfo)
 			plugin.Log.Info(node.NodeLiveness)
-			plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, NodeInfo: nodeInfo}
+			plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, nodeInfo: nodeInfo}
 		}(client)
 
 		go func(client http.Client) {
@@ -232,17 +234,33 @@ func (plugin *Plugin) consumer() {
 			plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nodeInterfaces}
 		}(client)
 
+		go func(client http.Client) {
+			res, err := client.Get("http://" + node.ManIPAdr + BridgeDomainsPort + BridgeDomainURL)
+			if err != nil {
+				plugin.Log.Error(err)
+				plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nil}
+				return
+			}
+			b, _ := ioutil.ReadAll(res.Body)
+			b = []byte(b)
+
+			nodeBridgeDomains := make(map[int]NodeBridgeDomains)
+			json.Unmarshal(b, &nodeBridgeDomains)
+			plugin.nDBChannel <- NodeBridgeDomainsDTO{nodeName: node.Name, nodeInfo: nodeBridgeDomains}
+
+		}(client)
 	}
-	for i := 0; i < 2*len(nodeList); i++ {
+	for i := 0; i < 3*len(nodeList); i++ {
 		data := <-plugin.nDBChannel
 		switch data.(type) {
 		case NodeLivenessDTO:
 			nlDto := data.(NodeLivenessDTO)
-			plugin.nodeDB.SetNodeInfo(nlDto.nodeName, nlDto.NodeInfo)
+			plugin.nodeDB.SetNodeInfo(nlDto.nodeName, nlDto.nodeInfo)
 		case NodeInterfacesDTO:
 			var intsl []int
 			nodeinterfaces := make([]NodeInterface, 0)
 			niDto := data.(NodeInterfacesDTO)
+			plugin.Log.Info(niDto.nodeInfo)
 			for itf := range niDto.nodeInfo {
 				intsl = append(intsl, itf)
 			}
@@ -251,14 +269,28 @@ func (plugin *Plugin) consumer() {
 				nodeinterfaces = append(nodeinterfaces, niDto.nodeInfo[itf])
 			}
 			plugin.nodeDB.SetNodeInterfaces(niDto.nodeName, nodeinterfaces)
-
+		case NodeBridgeDomainsDTO:
+			nbdDto := data.(NodeBridgeDomainsDTO)
+			var intsl []int
+			nodebridgedomains := make([]NodeBridgeDomains, 0)
+			for bd := range nbdDto.nodeInfo {
+				intsl = append(intsl, bd)
+			}
+			sort.Ints(intsl)
+			for _, bd := range intsl {
+				nodebridgedomains = append(nodebridgedomains, nbdDto.nodeInfo[bd])
+			}
+			plugin.nodeDB.SetNodeBridgeDomain(nbdDto.nodeName, nodebridgedomains)
 		default:
 			plugin.Log.Error("Unknown data type")
 		}
 	}
 
 	for _, node := range nodeList {
-		plugin.Log.Infof("Node info: %+v NodeLiveness: %+v NodeInterfaces: %v", node, node.NodeLiveness, node.NodeInterfaces)
+		plugin.Log.Infof("Node info: %+v ", node)
+		plugin.Log.Infof("Node Liveness: %+v", node.NodeLiveness)
+		plugin.Log.Infof("Node Interfaces: %+v", node.NodeInterfaces)
+		plugin.Log.Infof("Node Bridge Domains: %+v", node.NodeBridgeDomains)
 
 	}
 
