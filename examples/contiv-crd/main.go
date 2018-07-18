@@ -197,7 +197,7 @@ func (plugin *Plugin) consumer() {
 
 	plugin.collectAgentInfo()
 
-	for i := 0; i < 3*len(nodeList); i++ {
+	for i := 0; i < 4*len(nodeList); i++ {
 		data := <-plugin.nDBChannel
 		switch data.(type) {
 		case NodeLivenessDTO:
