@@ -48,21 +48,6 @@ func (plugin *Plugin) collectAgentInfo() {
 		//	plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nodeInterfaces}
 		//}(client)
 		go plugin.getBridgeDomainInfo(client, node)
-		//go func(client http.Client) {
-		//	res, err := client.Get("http://" + node.ManIPAdr + BridgeDomainsPort + BridgeDomainURL)
-		//	if err != nil {
-		//		plugin.Log.Error(err)
-		//		plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nil}
-		//		return
-		//	}
-		//	b, _ := ioutil.ReadAll(res.Body)
-		//	b = []byte(b)
-		//
-		//	nodeBridgeDomains := make(map[int]NodeBridgeDomains)
-		//	json.Unmarshal(b, &nodeBridgeDomains)
-		//	plugin.nDBChannel <- NodeBridgeDomainsDTO{nodeName: node.Name, nodeInfo: nodeBridgeDomains}
-		//
-		//}(client)
 
 	}
 }
@@ -77,7 +62,6 @@ func (plugin *Plugin) getLivenessInfo(client http.Client, node *Node) {
 	b = []byte(b)
 	nodeInfo := &NodeLiveness{}
 	json.Unmarshal(b, nodeInfo)
-	plugin.Log.Info(node.NodeLiveness)
 	plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, nodeInfo: nodeInfo}
 
 }

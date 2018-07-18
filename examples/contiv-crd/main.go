@@ -192,6 +192,7 @@ func (plugin *Plugin) consumer() {
 	//Rest client
 	nodeList := plugin.nodeDB.GetAllNodes()
 	plugin.nDBChannel = make(chan interface{})
+
 	plugin.collectAgentInfo()
 
 	for i := 0; i < 3*len(nodeList); i++ {
@@ -204,7 +205,6 @@ func (plugin *Plugin) consumer() {
 			var intsl []int
 			nodeinterfaces := make([]NodeInterface, 0)
 			niDto := data.(NodeInterfacesDTO)
-			plugin.Log.Info(niDto.nodeInfo)
 			for itf := range niDto.nodeInfo {
 				intsl = append(intsl, itf)
 			}
@@ -231,7 +231,7 @@ func (plugin *Plugin) consumer() {
 	}
 
 	for _, node := range nodeList {
-		plugin.Log.Infof("Node info: %+v ", node)
+		plugin.Log.Infof("Node Info: %+v ", node)
 		plugin.Log.Infof("Node Liveness: %+v", node.NodeLiveness)
 		plugin.Log.Infof("Node Interfaces: %+v", node.NodeInterfaces)
 		plugin.Log.Infof("Node Bridge Domains: %+v", node.NodeBridgeDomains)

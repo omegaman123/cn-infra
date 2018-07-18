@@ -32,6 +32,21 @@ type NodeLivenessDTO struct {
 	nodeInfo *NodeLiveness
 }
 
+type NodeTelemetry struct {
+	Command []output
+}
+
+type output struct {
+	command string
+	output  []outputEntry
+}
+
+type outputEntry struct {
+	nodeName string
+	count    int
+	reason   string
+}
+
 type NodeInterface struct {
 	VppInternalName string   `json:"vpp_internal_name"`
 	Name            string   `json:"name"`
