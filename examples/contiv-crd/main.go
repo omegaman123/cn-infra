@@ -41,6 +41,8 @@ const (
 	InterfaceURL      = "/interfaces"
 	BridgeDomainsPort = ":9999"
 	BridgeDomainURL   = "/bridgedomains"
+	L2FibsPort        = ":9999"
+	L2FibsURL         = "/l2fibs"
 )
 
 func main() {
@@ -225,6 +227,18 @@ func (plugin *Plugin) consumer() {
 				nodebridgedomains = append(nodebridgedomains, nbdDto.nodeInfo[bd])
 			}
 			plugin.nodeDB.SetNodeBridgeDomain(nbdDto.nodeName, nodebridgedomains)
+		case NodeL2FibsDTO:
+			nl2fDto := data.(NodeL2FibsDTO)
+			var strsl []string
+			nodel2fibs := make([]NodeL2Fib, 0)
+			for key := range nl2fDto.nodeInfo {
+				strsl = append(strsl, key)
+			}
+			sort.Strings(strsl)
+			for _, l2f := range strsl {
+				nodel2fibs = append(nodel2fibs, nl2fDto.nodeInfo[l2f])
+			}
+			plugin.nodeDB.SetNodeL2Fibs(nl2fDto.nodeName, nodel2fibs)
 		default:
 			plugin.Log.Error("Unknown data type")
 		}
@@ -235,7 +249,7 @@ func (plugin *Plugin) consumer() {
 		plugin.Log.Infof("Node Liveness: %+v", node.NodeLiveness)
 		plugin.Log.Infof("Node Interfaces: %+v", node.NodeInterfaces)
 		plugin.Log.Infof("Node Bridge Domains: %+v", node.NodeBridgeDomains)
-
+		plugin.Log.Infof("Node L2Fibs: %+v", node.NodeL2Fibs)
 	}
 
 }

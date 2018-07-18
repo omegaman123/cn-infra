@@ -15,6 +15,7 @@ type Node struct {
 	NodeLiveness      *NodeLiveness
 	NodeInterfaces    []NodeInterface
 	NodeBridgeDomains []NodeBridgeDomains
+	NodeL2Fibs        []NodeL2Fib
 }
 
 type NodeLiveness struct {
@@ -45,6 +46,19 @@ type outputEntry struct {
 	nodeName string
 	count    int
 	reason   string
+}
+
+type NodeL2Fib struct {
+	BridgeDomainIdx          uint32 `json:"bridge_domain_idx"`
+	OutgoingInterfaceSwIfIdx uint32 `json:"outgoing_interface_sw_if_idx"`
+	PhysAddress              string `json:"phys_address"`
+	StaticConfig             bool   `json:"static_config"`
+	BridgedVirtualInterface  bool   `json:"bridged_virtual_interface"`
+}
+
+type NodeL2FibsDTO struct {
+	nodeName string
+	nodeInfo map[string]NodeL2Fib
 }
 
 type NodeInterface struct {
@@ -88,6 +102,7 @@ type Nodes interface {
 	SetNodeInfo(name string, nL *NodeLiveness) error
 	SetNodeInterfaces(name string, nInt []NodeInterface) error
 	SetNodeBridgeDomain(name string, nBridge []NodeBridgeDomains) error
+	SetNodeL2Fibs(name string, nL2f []NodeL2Fib) error
 }
 
 type NodesDB struct {
@@ -123,6 +138,15 @@ func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge []NodeBridgeDomains
 		return err
 	}
 	node.NodeBridgeDomains = nBridge
+	return nil
+}
+
+func (nDB *NodesDB) SetNodeL2Fibs(name string, nL2F []NodeL2Fib) error {
+	node, err := nDB.GetNode(name)
+	if err != nil {
+		return err
+	}
+	node.NodeL2Fibs = nL2F
 	return nil
 }
 
