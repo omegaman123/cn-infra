@@ -16,6 +16,7 @@ type Node struct {
 	NodeInterfaces    []NodeInterface
 	NodeBridgeDomains []NodeBridgeDomains
 	NodeL2Fibs        []NodeL2Fib
+	NodeTelemetry     []NodeTelemetry
 }
 
 type NodeLiveness struct {
@@ -33,8 +34,14 @@ type NodeLivenessDTO struct {
 	nodeInfo *NodeLiveness
 }
 
+type NodeTelemetryDTO struct {
+	nodeName string
+	nodeInfo map[string]NodeTelemetry
+}
+
 type NodeTelemetry struct {
-	Command []output
+	Command string   `json:"command"`
+	Output  []output `json:"output"`
 }
 
 type output struct {
@@ -99,10 +106,11 @@ type Nodes interface {
 	DeleteNode(key string) error
 	GetNode(key string) (*Node, error)
 	GetAllNodes() []*Node
-	SetNodeInfo(name string, nL *NodeLiveness) error
+	SetNodeLiveness(name string, nL *NodeLiveness) error
 	SetNodeInterfaces(name string, nInt []NodeInterface) error
 	SetNodeBridgeDomain(name string, nBridge []NodeBridgeDomains) error
 	SetNodeL2Fibs(name string, nL2f []NodeL2Fib) error
+	SetNodeTelemetry(name string, nTele []NodeTelemetry) error
 }
 
 type NodesDB struct {
@@ -114,7 +122,7 @@ func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
 	return &NodesDB{make(map[string]*Node), logger}
 }
 
-func (nDb *NodesDB) SetNodeInfo(name string, nLive *NodeLiveness) error {
+func (nDb *NodesDB) SetNodeLiveness(name string, nLive *NodeLiveness) error {
 	node, err := nDb.GetNode(name)
 	if err != nil {
 		return err
@@ -147,6 +155,15 @@ func (nDB *NodesDB) SetNodeL2Fibs(name string, nL2F []NodeL2Fib) error {
 		return err
 	}
 	node.NodeL2Fibs = nL2F
+	return nil
+}
+
+func (nDB *NodesDB) SetNodeTelemetry(name string, nTele []NodeTelemetry) error {
+	node, err := nDB.GetNode(name)
+	if err != nil {
+		return err
+	}
+	node.NodeTelemetry = nTele
 	return nil
 }
 

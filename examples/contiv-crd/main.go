@@ -8,8 +8,6 @@ import (
 
 	"sync"
 
-	"sort"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/ligato/cn-infra/agent"
 	"github.com/ligato/cn-infra/config"
@@ -43,6 +41,8 @@ const (
 	BridgeDomainURL   = "/bridgedomains"
 	L2FibsPort        = ":9999"
 	L2FibsURL         = "/l2fibs"
+	TelemetryPort     = ":9999"
+	TelemetryURL      = "/telemetry"
 )
 
 func main() {
@@ -177,13 +177,13 @@ func (plugin *Plugin) consumer() {
 		plugin.Log.Error("Error: ", err)
 	}
 	for {
-		message1, stop := messageList.GetNext()
+		message, stop := messageList.GetNext()
 		protoMessage := &node.NodeInfo{}
 		if stop {
 			plugin.Log.Info("No more data under: ", messageList)
 			break
 		}
-		err = message1.GetValue(protoMessage)
+		err = message.GetValue(protoMessage)
 		if err != nil {
 			plugin.Log.Error("Error in getting value of iterator: ", err)
 			continue
@@ -197,52 +197,7 @@ func (plugin *Plugin) consumer() {
 
 	plugin.collectAgentInfo()
 
-	for i := 0; i < 4*len(nodeList); i++ {
-		data := <-plugin.nDBChannel
-		switch data.(type) {
-		case NodeLivenessDTO:
-			nlDto := data.(NodeLivenessDTO)
-			plugin.nodeDB.SetNodeInfo(nlDto.nodeName, nlDto.nodeInfo)
-		case NodeInterfacesDTO:
-			var intsl []int
-			nodeinterfaces := make([]NodeInterface, 0)
-			niDto := data.(NodeInterfacesDTO)
-			for itf := range niDto.nodeInfo {
-				intsl = append(intsl, itf)
-			}
-			sort.Ints(intsl)
-			for _, itf := range intsl {
-				nodeinterfaces = append(nodeinterfaces, niDto.nodeInfo[itf])
-			}
-			plugin.nodeDB.SetNodeInterfaces(niDto.nodeName, nodeinterfaces)
-		case NodeBridgeDomainsDTO:
-			nbdDto := data.(NodeBridgeDomainsDTO)
-			var intsl []int
-			nodebridgedomains := make([]NodeBridgeDomains, 0)
-			for bd := range nbdDto.nodeInfo {
-				intsl = append(intsl, bd)
-			}
-			sort.Ints(intsl)
-			for _, bd := range intsl {
-				nodebridgedomains = append(nodebridgedomains, nbdDto.nodeInfo[bd])
-			}
-			plugin.nodeDB.SetNodeBridgeDomain(nbdDto.nodeName, nodebridgedomains)
-		case NodeL2FibsDTO:
-			nl2fDto := data.(NodeL2FibsDTO)
-			var strsl []string
-			nodel2fibs := make([]NodeL2Fib, 0)
-			for key := range nl2fDto.nodeInfo {
-				strsl = append(strsl, key)
-			}
-			sort.Strings(strsl)
-			for _, l2f := range strsl {
-				nodel2fibs = append(nodel2fibs, nl2fDto.nodeInfo[l2f])
-			}
-			plugin.nodeDB.SetNodeL2Fibs(nl2fDto.nodeName, nodel2fibs)
-		default:
-			plugin.Log.Error("Unknown data type")
-		}
-	}
+	plugin.ProcessNodeData(nodeList)
 
 	for _, node := range nodeList {
 		plugin.Log.Infof("Node Info: %+v ", node)
@@ -250,6 +205,7 @@ func (plugin *Plugin) consumer() {
 		plugin.Log.Infof("Node Interfaces: %+v", node.NodeInterfaces)
 		plugin.Log.Infof("Node Bridge Domains: %+v", node.NodeBridgeDomains)
 		plugin.Log.Infof("Node L2Fibs: %+v", node.NodeL2Fibs)
+		plugin.Log.Infof("Node Telemetry: %+v", node.NodeTelemetry)
 	}
 
 }

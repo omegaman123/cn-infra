@@ -6,6 +6,8 @@ import (
 	"net/http"
 )
 
+//Gathers a number of data points for every node in the Node List
+//using goroutines and a
 func (plugin *Plugin) collectAgentInfo() {
 	nodeList := plugin.nodeDB.GetAllNodes()
 	client := http.Client{
@@ -14,6 +16,7 @@ func (plugin *Plugin) collectAgentInfo() {
 		Jar:           nil,
 		Timeout:       Timeout,
 	}
+
 	for _, node := range nodeList {
 
 		go plugin.getLivenessInfo(client, node)
@@ -23,6 +26,8 @@ func (plugin *Plugin) collectAgentInfo() {
 		go plugin.getBridgeDomainInfo(client, node)
 
 		go plugin.getL2FibInfo(client, node)
+
+		go plugin.getTelemetryInfo(client, node)
 
 	}
 }
@@ -85,4 +90,18 @@ func (plugin *Plugin) getL2FibInfo(client http.Client, node *Node) {
 	json.Unmarshal(b, &nodel2fibs)
 	plugin.nDBChannel <- NodeL2FibsDTO{nodeName: node.Name, nodeInfo: nodel2fibs}
 
+}
+
+func (plugin *Plugin) getTelemetryInfo(client http.Client, node *Node) {
+	res, err := client.Get("http://" + node.ManIPAdr + L2FibsPort + L2FibsURL)
+	if err != nil {
+		plugin.Log.Error(err)
+		plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nil}
+		return
+	}
+	b, _ := ioutil.ReadAll(res.Body)
+	b = []byte(b)
+	nodetelemetry := make(map[string]NodeTelemetry)
+	json.Unmarshal(b, &nodetelemetry)
+	plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nodetelemetry}
 }
