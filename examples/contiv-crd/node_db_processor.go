@@ -4,9 +4,9 @@ import "sort"
 
 //Reads data sent by agent_client.go to the plugins Node Database channel.
 //Decides how to process the data received based on the type of Data Transfer Object.
-//After that, it orders the map of data into a list and updates the node Database with that list.
+//After that, it orders the map of data into a list and updates the node Database with that ordered list.
 func (plugin *Plugin) ProcessNodeData(nodeList []*Node) {
-	for i := 0; i < DataPoints *len(nodeList); i++ {
+	for i := 0; i < NodeHTTPCalls *len(nodeList); i++ {
 		data := <-plugin.nDBChannel
 		switch data.(type) {
 		case NodeLivenessDTO:
@@ -63,15 +63,15 @@ func (plugin *Plugin) ProcessNodeData(nodeList []*Node) {
 		case NodeIPArpDTO:
 			nipaDto := data.(NodeIPArpDTO)
 			var keyslice []string
-			nodeiparp := make([]NodeIPArp,0)
-			for arpkey := range nipaDto.nodeInfo  {
+			nodeiparp := make([]NodeIPArp, 0)
+			for arpkey := range nipaDto.nodeInfo {
 				keyslice = append(keyslice, arpkey)
 			}
 			sort.Strings(keyslice)
 			for _, arpkey := range keyslice {
 				nodeiparp = append(nodeiparp, nipaDto.nodeInfo[arpkey])
 			}
-			plugin.nodeDB.SetNodeIPARPs(nipaDto.nodeName,nodeiparp)
+			plugin.nodeDB.SetNodeIPARPs(nipaDto.nodeName, nodeiparp)
 		default:
 			plugin.Log.Error("Unknown data type")
 		}

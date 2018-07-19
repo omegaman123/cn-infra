@@ -1,9 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -98,26 +95,46 @@ func TestNodesDB_GetAllNodes(t *testing.T) {
 
 }
 
-func TestNodesDB_SetNodeInfo(t *testing.T) {
+func TestNodesDB_SetNodeInterfaces(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	db := NewNodesDB(nil)
-	db.AddNode(1, "k8s_master", "10", "10.20.0.2")
+	db.AddNode(1, "k8s_master", "10", "10")
 	node, ok := db.GetNode("k8s_master")
 	gomega.Expect(ok).To(gomega.BeNil())
 	gomega.Expect(node.IPAdr).To(gomega.Equal("10"))
 	gomega.Expect(node.Name).To(gomega.Equal("k8s_master"))
 	gomega.Expect(node.ID).To(gomega.Equal(uint32(1)))
-	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10.20.0.2"))
-	res, err := http.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
-	gomega.Expect(err).To(gomega.BeNil())
-	b, _ := ioutil.ReadAll(res.Body)
-	b = []byte(b)
-	nodeInfo := &NodeLiveness{}
-	json.Unmarshal(b, nodeInfo)
-	db.SetNodeLiveness(node.Name, nodeInfo)
-	//gomega.Expect(node.NodeLiveness.Build_version).To(gomega.Equal("v1.2-alpha-169-gcf4ac7e"))
-
-	err = db.SetNodeLiveness("NonExistantNode", nodeInfo)
+	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
+	var ips []string
+	nodeIFs := make([]NodeInterface,0)
+	nodeIF := NodeInterface{"Test","Testing",0,true,"",0,vxlan{},ips,tap{}}
+	nodeIFs = append(nodeIFs,nodeIF)
+	err := db.SetNodeInterfaces("NENODE",nodeIFs)
 	gomega.Expect(err).To(gomega.Not(gomega.BeNil()))
+	err = db.SetNodeInterfaces("k8s_master",nodeIFs)
+	gomega.Expect(err).To(gomega.BeNil())
+}
+
+func TestNodesDB_SetNodeBridgeDomain(t *testing.T) {
+	gomega.RegisterTestingT(t)
+	db := NewNodesDB(nil)
+	db.AddNode(1, "k8s_master", "10", "10")
+	node, ok := db.GetNode("k8s_master")
+	gomega.Expect(ok).To(gomega.BeNil())
+	gomega.Expect(node.IPAdr).To(gomega.Equal("10"))
+	gomega.Expect(node.Name).To(gomega.Equal("k8s_master"))
+	gomega.Expect(node.ID).To(gomega.Equal(uint32(1)))
+	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
+	var ifs []bdinterfaces
+	nodeBD := NodeBridgeDomains{ifs,"",false,}
+	nodesBDs := make([]NodeBridgeDomains,0)
+	nodesBDs = append(nodesBDs,nodeBD)
+
+	err := db.SetNodeBridgeDomain("NENODE",nodesBDs)
+	gomega.Expect(err).To(gomega.Not(gomega.BeNil()))
+	err = db.SetNodeBridgeDomain("k8s_master",nodesBDs)
+	gomega.Expect(err).To(gomega.BeNil())
 
 }
+
+

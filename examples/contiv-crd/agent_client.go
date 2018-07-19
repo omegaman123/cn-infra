@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-const  (
+const (
 	LivenessPort      = ":9999"
 	LivessURL         = "/liveness"
 	Timeout           = 1000000000
@@ -18,10 +18,11 @@ const  (
 	L2FibsURL         = "/l2fibs"
 	TelemetryPort     = ":9999"
 	TelemetryURL      = "/telemetry"
-	DataPoints = 6
-
+	NodeHTTPCalls     = 6
 )
+
 //Gathers a number of data points for every node in the Node List
+
 func (plugin *Plugin) collectAgentInfo() {
 	nodeList := plugin.nodeDB.GetAllNodes()
 	client := http.Client{
@@ -43,7 +44,7 @@ func (plugin *Plugin) collectAgentInfo() {
 
 		go plugin.getTelemetryInfo(client, node)
 
-		go plugin.getIPArpInfo(client,node)
+		go plugin.getIPArpInfo(client, node)
 
 	}
 }
@@ -56,7 +57,6 @@ object is created to hold the struct of information as well as the name and is s
 over the plugins node database channel to node_db_processor.go where it will be read,
 processed, and added to the node database.
 */
-
 
 func (plugin *Plugin) getLivenessInfo(client http.Client, node *Node) {
 	res, err := client.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
@@ -133,7 +133,7 @@ func (plugin *Plugin) getTelemetryInfo(client http.Client, node *Node) {
 	plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nodetelemetry}
 }
 
-func (plugin *Plugin) getIPArpInfo(client http.Client,node *Node){
+func (plugin *Plugin) getIPArpInfo(client http.Client, node *Node) {
 	res, err := client.Get("http://" + node.ManIPAdr + TelemetryPort + TelemetryURL)
 	if err != nil {
 		plugin.Log.Error(err)
@@ -143,8 +143,6 @@ func (plugin *Plugin) getIPArpInfo(client http.Client,node *Node){
 	b, _ := ioutil.ReadAll(res.Body)
 	b = []byte(b)
 	nodeiparp := make(map[string]NodeIPArp)
-	json.Unmarshal(b,&nodeiparp)
-	plugin.nDBChannel<-NodeIPArpDTO{nodeName:node.Name, nodeInfo:nodeiparp}
+	json.Unmarshal(b, &nodeiparp)
+	plugin.nDBChannel <- NodeIPArpDTO{nodeName: node.Name, nodeInfo: nodeiparp}
 }
-
-
