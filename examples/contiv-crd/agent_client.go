@@ -130,4 +130,18 @@ func (plugin *Plugin) getTelemetryInfo(client http.Client, node *Node) {
 	plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nodetelemetry}
 }
 
+func (plugin *Plugin) getIPArpInfo(client http.Client,node *Node){
+	res, err := client.Get("http://" + node.ManIPAdr + TelemetryPort + TelemetryURL)
+	if err != nil {
+		plugin.Log.Error(err)
+		plugin.nDBChannel <- NodeIPArpDTO{nodeName: node.Name, nodeInfo: nil}
+		return
+	}
+	b, _ := ioutil.ReadAll(res.Body)
+	b = []byte(b)
+	nodeiparp := make(map[string]NodeIPArp)
+	json.Unmarshal(b,&nodeiparp)
+	plugin.nDBChannel<-NodeIPArpDTO{nodeName:node.Name, nodeInfo:nodeiparp}
+}
+
 

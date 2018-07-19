@@ -55,12 +55,6 @@ type outputEntry struct {
 	reason   string
 }
 
-type vxlan struct {
-	SrcAddress string `json:"src_address"`
-	DstAddress string `json:"dst_address"`
-	Vni        uint32 `json:"vni"`
-}
-
 type NodeL2Fib struct {
 	BridgeDomainIdx          uint32 `json:"bridge_domain_idx"`
 	OutgoingInterfaceSwIfIdx uint32 `json:"outgoing_interface_sw_if_idx"`
@@ -84,6 +78,23 @@ type NodeInterface struct {
 	Vxlan           vxlan    `json:"vxlan,omitempty"`
 	IpAddresses     []string `json:"ip_addresses,omitempty"`
 	Tap             tap      `json:"tap,omitempty"`
+}
+type vxlan struct {
+	SrcAddress string `json:"src_address"`
+	DstAddress string `json:"dst_address"`
+	Vni        uint32 `json:"vni"`
+}
+
+type NodeIPArp struct {
+	Interface  uint32 `json:"interface"`
+	IPAddress  string `json:"IPAddress"`
+	MacAddress string `json:"MacAddress"`
+	static     bool   `json:"Static"`
+}
+
+type NodeIPArpDTO struct {
+	nodeInfo map[string]NodeIPArp
+	nodeName string
 }
 type tap struct {
 	Version    uint32 `json:"version"`
