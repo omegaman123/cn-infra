@@ -20,6 +20,8 @@ type Node struct {
 	NodeIPArp         []NodeIPArp
 }
 
+
+
 type NodeLiveness struct {
 	BuildVersion string `json:"build_version"`
 	BuildDate    string `json:"build_date"`
@@ -135,6 +137,7 @@ type Nodes interface {
 
 type NodesDB struct {
 	nMap   map[string]*Node
+
 	logger logging.PluginLogger
 }
 
