@@ -18,6 +18,7 @@ const  (
 	L2FibsURL         = "/l2fibs"
 	TelemetryPort     = ":9999"
 	TelemetryURL      = "/telemetry"
+	DataPoints = 6
 
 )
 //Gathers a number of data points for every node in the Node List
@@ -41,6 +42,8 @@ func (plugin *Plugin) collectAgentInfo() {
 		go plugin.getL2FibInfo(client, node)
 
 		go plugin.getTelemetryInfo(client, node)
+
+		go plugin.getIPArpInfo(client,node)
 
 	}
 }

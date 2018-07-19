@@ -17,6 +17,7 @@ type Node struct {
 	NodeBridgeDomains []NodeBridgeDomains
 	NodeL2Fibs        []NodeL2Fib
 	NodeTelemetry     []NodeTelemetry
+	NodeIPArp         []NodeIPArp
 }
 
 type NodeLiveness struct {
@@ -129,6 +130,7 @@ type Nodes interface {
 	SetNodeBridgeDomain(name string, nBridge []NodeBridgeDomains) error
 	SetNodeL2Fibs(name string, nL2f []NodeL2Fib) error
 	SetNodeTelemetry(name string, nTele []NodeTelemetry) error
+	SetNodeIPARPs(name string, nArps []NodeIPArp) error
 }
 
 type NodesDB struct {
@@ -184,6 +186,16 @@ func (nDB *NodesDB) SetNodeTelemetry(name string, nTele []NodeTelemetry) error {
 	}
 	node.NodeTelemetry = nTele
 	return nil
+}
+
+func (nDB *NodesDB) SetNodeIPARPs(name string, nArps []NodeIPArp) error {
+	node, err := nDB.GetNode(name)
+	if err != nil {
+		return err
+	}
+	node.NodeIPArp = nArps
+	return nil
+
 }
 
 //Returns a pointer to a node for the given key.
