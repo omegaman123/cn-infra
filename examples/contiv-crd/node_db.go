@@ -55,6 +55,12 @@ type outputEntry struct {
 	reason   string
 }
 
+type vxlan struct {
+	SrcAddress string `json:"src_address"`
+	DstAddress string `json:"dst_address"`
+	Vni        uint32 `json:"vni"`
+}
+
 type NodeL2Fib struct {
 	BridgeDomainIdx          uint32 `json:"bridge_domain_idx"`
 	OutgoingInterfaceSwIfIdx uint32 `json:"outgoing_interface_sw_if_idx"`
@@ -75,6 +81,7 @@ type NodeInterface struct {
 	Enabled         bool     `json:"enabled,omitempty"`
 	PhysAddress     string   `json:"phys_address,omitempty"`
 	Mtu             uint32   `json:"mtu,omitempty"`
+	Vxlan           vxlan    `json:"vxlan,omitempty"`
 	IpAddresses     []string `json:"ip_addresses,omitempty"`
 	Tap             tap      `json:"tap,omitempty"`
 }
@@ -118,6 +125,7 @@ type NodesDB struct {
 	logger logging.PluginLogger
 }
 
+//Returns a pointer to a new node Database
 func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
 	return &NodesDB{make(map[string]*Node), logger}
 }

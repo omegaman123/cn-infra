@@ -32,17 +32,6 @@ import (
 
 const (
 	PluginName        = "contiv-crd"
-	LivenessPort      = ":9999"
-	LivessURL         = "/liveness"
-	Timeout           = 1000000000
-	InterfacePort     = ":9999"
-	InterfaceURL      = "/interfaces"
-	BridgeDomainsPort = ":9999"
-	BridgeDomainURL   = "/bridgedomains"
-	L2FibsPort        = ":9999"
-	L2FibsURL         = "/l2fibs"
-	TelemetryPort     = ":9999"
-	TelemetryURL      = "/telemetry"
 )
 
 func main() {
@@ -193,6 +182,7 @@ func (plugin *Plugin) consumer() {
 	}
 	//Rest client
 	nodeList := plugin.nodeDB.GetAllNodes()
+
 	plugin.nDBChannel = make(chan interface{})
 
 	plugin.collectAgentInfo()
@@ -206,6 +196,7 @@ func (plugin *Plugin) consumer() {
 		plugin.Log.Infof("Node Bridge Domains: %+v", node.NodeBridgeDomains)
 		plugin.Log.Infof("Node L2Fibs: %+v", node.NodeL2Fibs)
 		plugin.Log.Infof("Node Telemetry: %+v", node.NodeTelemetry)
+		plugin.Log.Infof("Node VX Lan Tunnels: %+v",node.NodeVXLanTunnels)
 	}
 
 }

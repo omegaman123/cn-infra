@@ -6,8 +6,21 @@ import (
 	"net/http"
 )
 
+const  (
+	LivenessPort      = ":9999"
+	LivessURL         = "/liveness"
+	Timeout           = 1000000000
+	InterfacePort     = ":9999"
+	InterfaceURL      = "/interfaces"
+	BridgeDomainsPort = ":9999"
+	BridgeDomainURL   = "/bridgedomains"
+	L2FibsPort        = ":9999"
+	L2FibsURL         = "/l2fibs"
+	TelemetryPort     = ":9999"
+	TelemetryURL      = "/telemetry"
+
+)
 //Gathers a number of data points for every node in the Node List
-//using goroutines and a
 func (plugin *Plugin) collectAgentInfo() {
 	nodeList := plugin.nodeDB.GetAllNodes()
 	client := http.Client{
@@ -31,6 +44,17 @@ func (plugin *Plugin) collectAgentInfo() {
 
 	}
 }
+
+/* Here are the several functions that run as goroutines to collect information
+about a specific node using an http client. First, an http request is made to the
+specific url and port of the desired information and the request received is read
+and unmarshalled into a struct to contain that information. Then, a data transfer
+object is created to hold the struct of information as well as the name and is sent
+over the plugins node database channel to node_db_processor.go where it will be read,
+processed, and added to the node database.
+*/
+
+
 func (plugin *Plugin) getLivenessInfo(client http.Client, node *Node) {
 	res, err := client.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
 	if err != nil {
@@ -93,7 +117,7 @@ func (plugin *Plugin) getL2FibInfo(client http.Client, node *Node) {
 }
 
 func (plugin *Plugin) getTelemetryInfo(client http.Client, node *Node) {
-	res, err := client.Get("http://" + node.ManIPAdr + L2FibsPort + L2FibsURL)
+	res, err := client.Get("http://" + node.ManIPAdr + TelemetryPort + TelemetryURL)
 	if err != nil {
 		plugin.Log.Error(err)
 		plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nil}
@@ -105,3 +129,5 @@ func (plugin *Plugin) getTelemetryInfo(client http.Client, node *Node) {
 	json.Unmarshal(b, &nodetelemetry)
 	plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nodetelemetry}
 }
+
+

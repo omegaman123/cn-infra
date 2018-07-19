@@ -2,7 +2,7 @@ package main
 
 import "sort"
 
-//Reads data over the plugins Node Database channel.
+//Reads data sent by agent_client.go to the plugins Node Database channel.
 //Decides how to process the data received based on the type of Data Transfer Object.
 //After that, it orders the map of data into a list and updates the node Database with that list.
 func (plugin *Plugin) ProcessNodeData(nodeList []*Node) {
