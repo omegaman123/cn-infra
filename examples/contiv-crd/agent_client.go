@@ -43,6 +43,7 @@ func (plugin *Plugin) collectAgentInfo() {
 		go plugin.getL2FibInfo(client, node)
 
 		//TODO: Implement getTelemetry correctly.
+		//Does not parse information correctly
 		go plugin.getTelemetryInfo(client, node)
 
 		go plugin.getIPArpInfo(client, node)

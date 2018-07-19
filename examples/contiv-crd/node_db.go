@@ -20,8 +20,6 @@ type Node struct {
 	NodeIPArp         []NodeIPArp
 }
 
-
-
 type NodeLiveness struct {
 	BuildVersion string `json:"build_version"`
 	BuildDate    string `json:"build_date"`
@@ -82,6 +80,10 @@ type NodeInterface struct {
 	IpAddresses     []string `json:"ip_addresses,omitempty"`
 	Tap             tap      `json:"tap,omitempty"`
 }
+type NodeInterfacesDTO struct {
+	nodeName string
+	nodeInfo map[int]NodeInterface
+}
 type vxlan struct {
 	SrcAddress string `json:"src_address"`
 	DstAddress string `json:"dst_address"`
@@ -104,10 +106,7 @@ type tap struct {
 	HostIfName string `json:"host_if_name"`
 }
 
-type NodeInterfacesDTO struct {
-	nodeName string
-	nodeInfo map[int]NodeInterface
-}
+
 type NodeBridgeDomains struct {
 	Interfaces []bdinterfaces `json:"interfaces"`
 	Name       string         `json:"name"`
@@ -136,14 +135,18 @@ type Nodes interface {
 }
 
 type NodesDB struct {
-	nMap   map[string]*Node
-
-	logger logging.PluginLogger
+	nMap       map[string]*Node
+	loopIPMap  map[string]*Node
+	gigEIPMap  map[string]*Node
+	loopMACMap map[string]*Node
+	logger     logging.PluginLogger
 }
 
 //Returns a pointer to a new node Database
 func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
-	return &NodesDB{make(map[string]*Node), logger}
+	return &NodesDB{make(map[string]*Node),make(map[string]*Node),
+	make(map[string]*Node),make(map[string]*Node),
+	logger}
 }
 
 func (nDb *NodesDB) SetNodeLiveness(name string, nLive *NodeLiveness) error {
@@ -232,6 +235,7 @@ func (nDB *NodesDB) AddNode(ID uint32, nodeName, IPAdr, ManIPAdr string) error {
 		return err
 	}
 	nDB.nMap[nodeName] = n
+	nDB.gigEIPMap[IPAdr] = n
 	return nil
 }
 

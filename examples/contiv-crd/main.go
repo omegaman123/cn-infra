@@ -190,12 +190,12 @@ func (plugin *Plugin) consumer() {
 	plugin.ProcessNodeData(nodeList)
 
 	for _, node := range nodeList {
-		plugin.Log.Infof("Node Info: %+v ", node)
+		plugin.Log.Infof("Node %+v ", node.Name)
 		plugin.Log.Infof("Node Liveness: %+v", node.NodeLiveness)
 		plugin.Log.Infof("Node Interfaces: %+v", node.NodeInterfaces)
 		plugin.Log.Infof("Node Bridge Domains: %+v", node.NodeBridgeDomains)
 		plugin.Log.Infof("Node L2Fibs: %+v", node.NodeL2Fibs)
-		plugin.Log.Infof("Node Telemetry: %+v", node.NodeTelemetry)
+		//plugin.Log.Infof("Node Telemetry: %+v", node.NodeTelemetry)
 	}
 
 }
