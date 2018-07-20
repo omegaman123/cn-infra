@@ -189,6 +189,10 @@ func (plugin *Plugin) consumer() {
 
 	plugin.ProcessNodeData(nodeList)
 
+	plugin.nodeDB.PopulateNodeMaps(nodeList)
+
+
+
 	for _, node := range nodeList {
 		plugin.Log.Infof("Node %+v ", node.Name)
 		plugin.Log.Infof("Node Liveness: %+v", node.NodeLiveness)

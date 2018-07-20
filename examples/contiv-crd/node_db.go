@@ -12,6 +12,7 @@ type Node struct {
 	IPAdr             string
 	ManIPAdr          string
 	Name              string
+
 	NodeLiveness      *NodeLiveness
 	NodeInterfaces    []NodeInterface
 	NodeBridgeDomains []NodeBridgeDomains
@@ -106,7 +107,6 @@ type tap struct {
 	HostIfName string `json:"host_if_name"`
 }
 
-
 type NodeBridgeDomains struct {
 	Interfaces []bdinterfaces `json:"interfaces"`
 	Name       string         `json:"name"`
@@ -132,6 +132,7 @@ type Nodes interface {
 	SetNodeL2Fibs(name string, nL2f []NodeL2Fib) error
 	SetNodeTelemetry(name string, nTele []NodeTelemetry) error
 	SetNodeIPARPs(name string, nArps []NodeIPArp) error
+	PopulateNodeMaps(nodelist []*Node)
 }
 
 type NodesDB struct {
@@ -140,13 +141,14 @@ type NodesDB struct {
 	gigEIPMap  map[string]*Node
 	loopMACMap map[string]*Node
 	logger     logging.PluginLogger
+
 }
 
 //Returns a pointer to a new node Database
 func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
-	return &NodesDB{make(map[string]*Node),make(map[string]*Node),
-	make(map[string]*Node),make(map[string]*Node),
-	logger}
+	return &NodesDB{make(map[string]*Node), make(map[string]*Node),
+		make(map[string]*Node), make(map[string]*Node),
+		logger}
 }
 
 func (nDb *NodesDB) SetNodeLiveness(name string, nLive *NodeLiveness) error {
@@ -252,4 +254,54 @@ func (nDB *NodesDB) GetAllNodes() []*Node {
 		nList = append(nList, n)
 	}
 	return nList
+}
+
+func (nDB *NodesDB) PopulateNodeMaps(nodelist []*Node) {
+	for _, node := range nodelist {
+		loopIF, err := nDB.getNodeLoopIFInfo(node)
+		if err != nil {
+			nDB.logger.Error(err)
+		}
+		for i := range loopIF.IpAddresses {
+			if ip, ok := nDB.loopIPMap[loopIF.IpAddresses[i]]; !ok {
+				//TODO: Report an error back to the controller; store it somewhere, report it at the end of the function
+				nDB.logger.Errorf("Duplicate IP found: %s", ip)
+			} else {
+				for i := range loopIF.IpAddresses {
+					nDB.loopIPMap[loopIF.IpAddresses[i]] = node
+				}
+			}
+		}
+		if mac, ok := nDB.loopMACMap[loopIF.PhysAddress]; !ok {
+			nDB.logger.Errorf("Duplicate MAC address found: %s", mac)
+		} else {
+			nDB.loopMACMap[loopIF.PhysAddress] = node
+		}
+	}
+
+}
+
+func (nDB *NodesDB) getNodeLoopIFInfo(node *Node) (NodeInterface, error) {
+	for _, ifs := range node.NodeInterfaces {
+		if ifs.VppInternalName == "loop0" {
+			return ifs, nil
+		}
+	}
+	err := errors.Errorf("Node %s does not have a loop interface")
+	return NodeInterface{}, err
+}
+
+func (nDB *NodesDB) ValidateIFAddresses(nodelist []*Node) bool {
+	for _,node := range nodelist  {
+		for _, arp := range node.NodeIPArp  {
+			macNode := nDB.loopMACMap[arp.MacAddress]
+			ipNode := nDB.loopIPMap[arp.IPAddress]
+			if macNode.Name != ipNode.Name {
+				nDB.logger.Errorf("MAC and IP point to different nodes: %s and %s in ARP Table %+v",
+											macNode.Name,ipNode.Name,arp)
+				return false
+			}
+		}
+	}
+	return true
 }

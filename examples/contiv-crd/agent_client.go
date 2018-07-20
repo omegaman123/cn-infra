@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 const (
 	LivenessPort      = ":9999"
 	LivessURL         = "/liveness"
-	Timeout           = 1000000000
+	Timeout           = time.Second*10
 	InterfacePort     = ":9999"
 	InterfaceURL      = "/interfaces"
 	BridgeDomainsPort = ":9999"
