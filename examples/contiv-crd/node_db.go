@@ -12,7 +12,6 @@ type Node struct {
 	IPAdr             string
 	ManIPAdr          string
 	Name              string
-
 	NodeLiveness      *NodeLiveness
 	NodeInterfaces    []NodeInterface
 	NodeBridgeDomains []NodeBridgeDomains
@@ -133,21 +132,30 @@ type Nodes interface {
 	SetNodeTelemetry(name string, nTele []NodeTelemetry) error
 	SetNodeIPARPs(name string, nArps []NodeIPArp) error
 	PopulateNodeMaps(nodelist []*Node)
+	ValidateLoopIFAddresses(nodelist []*Node) bool
 }
 
 type NodesDB struct {
-	nMap       map[string]*Node
-	loopIPMap  map[string]*Node
-	gigEIPMap  map[string]*Node
-	loopMACMap map[string]*Node
-	logger     logging.PluginLogger
+	nMap        map[string]*Node
+	loopIPMap   map[string]*Node
+	gigEIPMap   map[string]*Node
+	loopMACMap  map[string]*Node
+	errorReport map[string][]string
+	logger      logging.PluginLogger
 
 }
 
+
+
 //Returns a pointer to a new node Database
 func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
-	return &NodesDB{make(map[string]*Node), make(map[string]*Node),
-		make(map[string]*Node), make(map[string]*Node),
+
+	return &NodesDB{
+		make(map[string]*Node),
+		make(map[string]*Node),
+		make(map[string]*Node),
+		make(map[string]*Node),
+		make(map[string][]string),
 		logger}
 }
 
@@ -263,7 +271,7 @@ func (nDB *NodesDB) PopulateNodeMaps(nodelist []*Node) {
 			nDB.logger.Error(err)
 		}
 		for i := range loopIF.IpAddresses {
-			if ip, ok := nDB.loopIPMap[loopIF.IpAddresses[i]]; !ok {
+			if ip, ok := nDB.loopIPMap[loopIF.IpAddresses[i]]; !ok && ip!=nil {
 				//TODO: Report an error back to the controller; store it somewhere, report it at the end of the function
 				nDB.logger.Errorf("Duplicate IP found: %s", ip)
 			} else {
@@ -272,7 +280,7 @@ func (nDB *NodesDB) PopulateNodeMaps(nodelist []*Node) {
 				}
 			}
 		}
-		if mac, ok := nDB.loopMACMap[loopIF.PhysAddress]; !ok {
+		if mac, ok := nDB.loopMACMap[loopIF.PhysAddress]; !ok && mac!=nil{
 			nDB.logger.Errorf("Duplicate MAC address found: %s", mac)
 		} else {
 			nDB.loopMACMap[loopIF.PhysAddress] = node
@@ -291,11 +299,23 @@ func (nDB *NodesDB) getNodeLoopIFInfo(node *Node) (NodeInterface, error) {
 	return NodeInterface{}, err
 }
 
-func (nDB *NodesDB) ValidateIFAddresses(nodelist []*Node) bool {
+func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 	for _,node := range nodelist  {
 		for _, arp := range node.NodeIPArp  {
-			macNode := nDB.loopMACMap[arp.MacAddress]
-			ipNode := nDB.loopIPMap[arp.IPAddress]
+			macNode,ok := nDB.loopMACMap[arp.MacAddress]
+			addressNotFound := false
+			if !ok{
+				nDB.logger.Errorf("Node for MAC Address %s not found", arp.MacAddress)
+				addressNotFound = true
+			}
+			ipNode,ok := nDB.loopIPMap[arp.IPAddress]
+			if !ok {
+				nDB.logger.Errorf("Node for IP Address %s not found",arp.IPAddress)
+				addressNotFound = true
+			}
+			if addressNotFound {
+				continue
+			}
 			if macNode.Name != ipNode.Name {
 				nDB.logger.Errorf("MAC and IP point to different nodes: %s and %s in ARP Table %+v",
 											macNode.Name,ipNode.Name,arp)

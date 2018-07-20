@@ -191,6 +191,9 @@ func (plugin *Plugin) consumer() {
 
 	plugin.nodeDB.PopulateNodeMaps(nodeList)
 
+	plugin.nodeDB.PopulateNodeMaps(nodeList)
+
+	plugin.nodeDB.ValidateLoopIFAddresses(nodeList)
 
 
 	for _, node := range nodeList {
