@@ -19,7 +19,9 @@ const (
 	L2FibsURL         = "/l2fibs"
 	TelemetryPort     = ":9999"
 	TelemetryURL      = "/telemetry"
-	NodeHTTPCalls     = 6
+	ArpPort = ":9999"
+	ArpURL = "/arps"
+	NodeHTTPCalls     = 5
 )
 
 //Gathers a number of data points for every node in the Node List
@@ -45,7 +47,7 @@ func (plugin *Plugin) collectAgentInfo() {
 
 		//TODO: Implement getTelemetry correctly.
 		//Does not parse information correctly
-		go plugin.getTelemetryInfo(client, node)
+		//go plugin.getTelemetryInfo(client, node)
 
 		go plugin.getIPArpInfo(client, node)
 
@@ -137,7 +139,7 @@ func (plugin *Plugin) getTelemetryInfo(client http.Client, node *Node) {
 }
 
 func (plugin *Plugin) getIPArpInfo(client http.Client, node *Node) {
-	res, err := client.Get("http://" + node.ManIPAdr + TelemetryPort + TelemetryURL)
+	res, err := client.Get("http://" + node.ManIPAdr + ArpPort + ArpURL)
 	if err != nil {
 		plugin.Log.Error(err)
 		plugin.nDBChannel <- NodeIPArpDTO{nodeName: node.Name, nodeInfo: nil}
@@ -145,7 +147,7 @@ func (plugin *Plugin) getIPArpInfo(client http.Client, node *Node) {
 	}
 	b, _ := ioutil.ReadAll(res.Body)
 	b = []byte(b)
-	nodeiparp := make(map[string]NodeIPArp)
-	json.Unmarshal(b, &nodeiparp)
-	plugin.nDBChannel <- NodeIPArpDTO{nodeName: node.Name, nodeInfo: nodeiparp}
+	nodeiparpslice := make([]NodeIPArp,0)
+	json.Unmarshal(b, &nodeiparpslice)
+	plugin.nDBChannel <- NodeIPArpDTO{nodeName: node.Name, nodeInfo: nodeiparpslice}
 }

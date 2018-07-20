@@ -2,7 +2,6 @@ package main
 
 import (
 	"sort"
-
 	"github.com/ligato/cn-infra/logging"
 	"github.com/pkg/errors"
 )
@@ -13,10 +12,10 @@ type Node struct {
 	ManIPAdr          string
 	Name              string
 	NodeLiveness      *NodeLiveness
-	NodeInterfaces    []NodeInterface
-	NodeBridgeDomains []NodeBridgeDomains
-	NodeL2Fibs        []NodeL2Fib
-	NodeTelemetry     []NodeTelemetry
+	NodeInterfaces    map[int]NodeInterface
+	NodeBridgeDomains map[int]NodeBridgeDomains
+	NodeL2Fibs        map[string]NodeL2Fib
+	NodeTelemetry     map[string]NodeTelemetry
 	NodeIPArp         []NodeIPArp
 }
 
@@ -80,10 +79,12 @@ type NodeInterface struct {
 	IpAddresses     []string `json:"ip_addresses,omitempty"`
 	Tap             tap      `json:"tap,omitempty"`
 }
+
 type NodeInterfacesDTO struct {
 	nodeName string
 	nodeInfo map[int]NodeInterface
 }
+
 type vxlan struct {
 	SrcAddress string `json:"src_address"`
 	DstAddress string `json:"dst_address"`
@@ -98,9 +99,10 @@ type NodeIPArp struct {
 }
 
 type NodeIPArpDTO struct {
-	nodeInfo map[string]NodeIPArp
+	nodeInfo []NodeIPArp
 	nodeName string
 }
+
 type tap struct {
 	Version    uint32 `json:"version"`
 	HostIfName string `json:"host_if_name"`
@@ -111,6 +113,7 @@ type NodeBridgeDomains struct {
 	Name       string         `json:"name"`
 	Forward    bool           `json:"forward"`
 }
+
 type bdinterfaces struct {
 	SwIfIndex uint32 `json:"sw_if_index"`
 }
@@ -126,10 +129,10 @@ type Nodes interface {
 	GetNode(key string) (*Node, error)
 	GetAllNodes() []*Node
 	SetNodeLiveness(name string, nL *NodeLiveness) error
-	SetNodeInterfaces(name string, nInt []NodeInterface) error
-	SetNodeBridgeDomain(name string, nBridge []NodeBridgeDomains) error
-	SetNodeL2Fibs(name string, nL2f []NodeL2Fib) error
-	SetNodeTelemetry(name string, nTele []NodeTelemetry) error
+	SetNodeInterfaces(name string, nInt map[int]NodeInterface) error
+	SetNodeBridgeDomain(name string, nBridge map[int]NodeBridgeDomains) error
+	SetNodeL2Fibs(name string, nL2f map[string]NodeL2Fib) error
+	SetNodeTelemetry(name string, nTele map[string]NodeTelemetry) error
 	SetNodeIPARPs(name string, nArps []NodeIPArp) error
 	PopulateNodeMaps(nodelist []*Node)
 	ValidateLoopIFAddresses(nodelist []*Node) bool
@@ -144,8 +147,6 @@ type NodesDB struct {
 	logger      logging.PluginLogger
 
 }
-
-
 
 //Returns a pointer to a new node Database
 func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
@@ -168,7 +169,7 @@ func (nDb *NodesDB) SetNodeLiveness(name string, nLive *NodeLiveness) error {
 	return nil
 }
 
-func (nDB *NodesDB) SetNodeInterfaces(name string, nInt []NodeInterface) error {
+func (nDB *NodesDB) SetNodeInterfaces(name string, nInt map[int]NodeInterface) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
 		return err
@@ -177,7 +178,7 @@ func (nDB *NodesDB) SetNodeInterfaces(name string, nInt []NodeInterface) error {
 	return nil
 
 }
-func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge []NodeBridgeDomains) error {
+func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge map[int]NodeBridgeDomains) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
 		return err
@@ -186,7 +187,7 @@ func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge []NodeBridgeDomains
 	return nil
 }
 
-func (nDB *NodesDB) SetNodeL2Fibs(name string, nL2F []NodeL2Fib) error {
+func (nDB *NodesDB) SetNodeL2Fibs(name string, nL2F map[string]NodeL2Fib) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
 		return err
@@ -195,7 +196,7 @@ func (nDB *NodesDB) SetNodeL2Fibs(name string, nL2F []NodeL2Fib) error {
 	return nil
 }
 
-func (nDB *NodesDB) SetNodeTelemetry(name string, nTele []NodeTelemetry) error {
+func (nDB *NodesDB) SetNodeTelemetry(name string, nTele map[string]NodeTelemetry) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
 		return err
@@ -301,7 +302,20 @@ func (nDB *NodesDB) getNodeLoopIFInfo(node *Node) (NodeInterface, error) {
 
 func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 	for _,node := range nodelist  {
+		nLoopIF,err := nDB.getNodeLoopIFInfo(node)
+		if err !=nil{
+			nDB.logger.Error(err)
+			nDB.logger.Errorf("Cannot process node ARP Table because loop interface info is missing.")
+			continue
+		}
 		for _, arp := range node.NodeIPArp  {
+			nLoopIFTwo,ok := node.NodeInterfaces[int(arp.Interface)]
+			if !ok {
+				nDB.logger.Errorf("Loop Interface in ARP Table not found: %d",arp.Interface)
+			}
+			if nLoopIF.VppInternalName != nLoopIFTwo.VppInternalName {
+				continue
+			}
 			macNode,ok := nDB.loopMACMap[arp.MacAddress]
 			addressNotFound := false
 			if !ok{
@@ -310,7 +324,7 @@ func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 			}
 			ipNode,ok := nDB.loopIPMap[arp.IPAddress]
 			if !ok {
-				nDB.logger.Errorf("Node for IP Address %s not found",arp.IPAddress)
+				nDB.logger.Errorf("Node %s could not find Node with IP Address %s",node.Name,arp.IPAddress)
 				addressNotFound = true
 			}
 			if addressNotFound {

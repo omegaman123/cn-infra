@@ -202,6 +202,7 @@ func (plugin *Plugin) consumer() {
 		plugin.Log.Infof("Node Interfaces: %+v", node.NodeInterfaces)
 		plugin.Log.Infof("Node Bridge Domains: %+v", node.NodeBridgeDomains)
 		plugin.Log.Infof("Node L2Fibs: %+v", node.NodeL2Fibs)
+		plugin.Log.Infof("Node IPArps: %+v",node.NodeIPArp)
 		//plugin.Log.Infof("Node Telemetry: %+v", node.NodeTelemetry)
 	}
 
