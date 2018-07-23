@@ -1,11 +1,14 @@
 package main
 
 import (
-	"sort"
 	"github.com/ligato/cn-infra/logging"
 	"github.com/pkg/errors"
+	"sort"
 )
 
+//Node is a struct to hold all relevant information of a kubernetes node.
+//It is populated with various information such as the interfaces and L2Fibs
+//as well as the name and IP Addresses.
 type Node struct {
 	ID                uint32
 	IPAdr             string
@@ -19,6 +22,7 @@ type Node struct {
 	NodeIPArp         []NodeIPArp
 }
 
+//NodeLiveness holds the unmarshalled node liveness JSON data
 type NodeLiveness struct {
 	BuildVersion string `json:"build_version"`
 	BuildDate    string `json:"build_date"`
@@ -29,19 +33,21 @@ type NodeLiveness struct {
 	CommitHash   string `json:"commit_hash"`
 }
 
+//NodeLivenessDTO is used to associate NodeLiveness Data with a node name and send it over channel for processing
 type NodeLivenessDTO struct {
 	nodeName string
 	nodeInfo *NodeLiveness
 }
 
-type NodeTelemetryDTO struct {
-	nodeName string
-	nodeInfo map[string]NodeTelemetry
-}
-
+//NodeTelemetry holds the unmarshalled node telemetry JSON data
 type NodeTelemetry struct {
 	Command string   `json:"command"`
 	Output  []output `json:"output"`
+}
+//NodeTelemetryDTO is used to associate NodeTelemetry data with a node name to be sent over a channel for processing
+type NodeTelemetryDTO struct {
+	nodeName string
+	nodeInfo map[string]NodeTelemetry
 }
 
 type output struct {
@@ -55,6 +61,7 @@ type outputEntry struct {
 	reason   string
 }
 
+//NodeL2Fib holds unmarshalled L2Fib JSON data
 type NodeL2Fib struct {
 	BridgeDomainIdx          uint32 `json:"bridge_domain_idx"`
 	OutgoingInterfaceSwIfIdx uint32 `json:"outgoing_interface_sw_if_idx"`
@@ -63,11 +70,13 @@ type NodeL2Fib struct {
 	BridgedVirtualInterface  bool   `json:"bridged_virtual_interface"`
 }
 
+//NodeL2FibsDTO associates a map of NodeL2Fib data with a node name to be sent over a channel for processing
 type NodeL2FibsDTO struct {
 	nodeName string
 	nodeInfo map[string]NodeL2Fib
 }
 
+//NodeInterface holds unmarshalled Interface JSON data
 type NodeInterface struct {
 	VppInternalName string   `json:"vpp_internal_name"`
 	Name            string   `json:"name"`
@@ -76,10 +85,11 @@ type NodeInterface struct {
 	PhysAddress     string   `json:"phys_address,omitempty"`
 	Mtu             uint32   `json:"mtu,omitempty"`
 	Vxlan           vxlan    `json:"vxlan,omitempty"`
-	IpAddresses     []string `json:"ip_addresses,omitempty"`
+	IPAddresses     []string `json:"ip_addresses,omitempty"`
 	Tap             tap      `json:"tap,omitempty"`
 }
 
+//NodeInterfacesDTO associates a map of Node interfaces with a node name to be sent over a channel for processing
 type NodeInterfacesDTO struct {
 	nodeName string
 	nodeInfo map[int]NodeInterface
@@ -91,6 +101,7 @@ type vxlan struct {
 	Vni        uint32 `json:"vni"`
 }
 
+//NodeIPArp holds unmarshalled IP ARP data
 type NodeIPArp struct {
 	Interface  uint32 `json:"interface"`
 	IPAddress  string `json:"IPAddress"`
@@ -98,6 +109,7 @@ type NodeIPArp struct {
 	Static     bool   `json:"Static"`
 }
 
+//NodeIPArpDTO associates an IP Arp table with a node name to be sent over a channel for processing.
 type NodeIPArpDTO struct {
 	nodeInfo []NodeIPArp
 	nodeName string
@@ -108,6 +120,7 @@ type tap struct {
 	HostIfName string `json:"host_if_name"`
 }
 
+//NodeBridgeDomains holds the unmarshalled bridge domain data.
 type NodeBridgeDomains struct {
 	Interfaces []bdinterfaces `json:"interfaces"`
 	Name       string         `json:"name"`
@@ -118,11 +131,13 @@ type bdinterfaces struct {
 	SwIfIndex uint32 `json:"sw_if_index"`
 }
 
+//NodeBridgeDomainsDTO associates a map of bridge domains with a node name to be sent over a channel for processing.
 type NodeBridgeDomainsDTO struct {
 	nodeName string
 	nodeInfo map[int]NodeBridgeDomains
 }
 
+//Nodes defines functions to be implemented that that allow the interaction with the Node Cache.
 type Nodes interface {
 	AddNode(ID uint32, nodeName, IPAdr, ManIPAdr string) error
 	DeleteNode(key string) error
@@ -138,6 +153,7 @@ type Nodes interface {
 	ValidateLoopIFAddresses(nodelist []*Node) bool
 }
 
+//NodesDB holds various maps which all take different keys but point to the same underlying value.
 type NodesDB struct {
 	nMap        map[string]*Node
 	loopIPMap   map[string]*Node
@@ -145,10 +161,9 @@ type NodesDB struct {
 	loopMACMap  map[string]*Node
 	errorReport map[string][]string
 	logger      logging.PluginLogger
-
 }
 
-//Returns a pointer to a new node Database
+//NewNodesDB returns a pointer to a new node Database
 func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
 
 	return &NodesDB{
@@ -160,9 +175,9 @@ func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
 		logger}
 }
 
-//Simple function to set a nodes interface given its name.
-func (nDb *NodesDB) SetNodeLiveness(name string, nLive *NodeLiveness) error {
-	node, err := nDb.GetNode(name)
+//SetNodeLiveness is a simple function to set a nodes liveness given its name.
+func (nDB *NodesDB) SetNodeLiveness(name string, nLive *NodeLiveness) error {
+	node, err := nDB.GetNode(name)
 	if err != nil {
 		return err
 	}
@@ -170,7 +185,7 @@ func (nDb *NodesDB) SetNodeLiveness(name string, nLive *NodeLiveness) error {
 	return nil
 }
 
-//Simple function to set a nodes interface given its name.
+//SetNodeInterfaces is a simple function to set a nodes interface given its name.
 func (nDB *NodesDB) SetNodeInterfaces(name string, nInt map[int]NodeInterface) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -181,7 +196,7 @@ func (nDB *NodesDB) SetNodeInterfaces(name string, nInt map[int]NodeInterface) e
 
 }
 
-//Simple function to set a nodes bridge domain given its name.
+//SetNodeBridgeDomain is a simple function to set a nodes bridge domain given its name.
 func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge map[int]NodeBridgeDomains) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -191,7 +206,7 @@ func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge map[int]NodeBridgeD
 	return nil
 }
 
-//Simple function to set a nodes l2 fibs given its name.
+//SetNodeL2Fibs is a simple function to set a nodes l2 fibs given its name.
 func (nDB *NodesDB) SetNodeL2Fibs(name string, nL2F map[string]NodeL2Fib) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -201,7 +216,7 @@ func (nDB *NodesDB) SetNodeL2Fibs(name string, nL2F map[string]NodeL2Fib) error 
 	return nil
 }
 
-//Simple function to set a nodes telemetry data given its name.
+//SetNodeTelemetry is a simple function to set a nodes telemetry data given its name.
 func (nDB *NodesDB) SetNodeTelemetry(name string, nTele map[string]NodeTelemetry) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -211,7 +226,7 @@ func (nDB *NodesDB) SetNodeTelemetry(name string, nTele map[string]NodeTelemetry
 	return nil
 }
 
-//Simple function to set a nodes ip arp table given its name.
+//SetNodeIPARPs is a simple function to set a nodes ip arp table given its name.
 func (nDB *NodesDB) SetNodeIPARPs(name string, nArps []NodeIPArp) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -222,7 +237,7 @@ func (nDB *NodesDB) SetNodeIPARPs(name string, nArps []NodeIPArp) error {
 
 }
 
-//Returns a pointer to a node for the given key.
+//GetNode returns a pointer to a node for the given key.
 //Returns an error if that key is not found.
 func (nDB *NodesDB) GetNode(key string) (n *Node, err error) {
 	if node, ok := nDB.nMap[key]; ok {
@@ -232,7 +247,7 @@ func (nDB *NodesDB) GetNode(key string) (n *Node, err error) {
 	return nil, err
 }
 
-//Deletes node with the given key.
+//DeleteNode deletes node with the given key.
 //Returns an error if the key is not found.
 func (nDB *NodesDB) DeleteNode(key string) error {
 	_, err := nDB.GetNode(key)
@@ -243,7 +258,7 @@ func (nDB *NodesDB) DeleteNode(key string) error {
 	return nil
 }
 
-//Adds a new node with the given information.
+//AddNode adds a new node with the given information.
 //Returns an error if the node is already in the database
 func (nDB *NodesDB) AddNode(ID uint32, nodeName, IPAdr, ManIPAdr string) error {
 	n := &Node{IPAdr: IPAdr, ManIPAdr: ManIPAdr, ID: ID, Name: nodeName}
@@ -257,7 +272,7 @@ func (nDB *NodesDB) AddNode(ID uint32, nodeName, IPAdr, ManIPAdr string) error {
 	return nil
 }
 
-//Returns an ordered slice of all nodes in a database organized by name.
+//GetAllNodes returns an ordered slice of all nodes in a database organized by name.
 func (nDB *NodesDB) GetAllNodes() []*Node {
 	var str []string
 	for k := range nDB.nMap {
@@ -272,7 +287,7 @@ func (nDB *NodesDB) GetAllNodes() []*Node {
 	return nList
 }
 
-//This function populates two of the node maps: the ip and mac address map
+//PopulateNodeMaps populates two of the node maps: the ip and mac address map
 //It also checks to make sure that there are no duplicate addresses within the map.
 func (nDB *NodesDB) PopulateNodeMaps(nodelist []*Node) {
 	for _, node := range nodelist {
@@ -280,17 +295,17 @@ func (nDB *NodesDB) PopulateNodeMaps(nodelist []*Node) {
 		if err != nil {
 			nDB.logger.Error(err)
 		}
-		for i := range loopIF.IpAddresses {
-			if ip, ok := nDB.loopIPMap[loopIF.IpAddresses[i]]; !ok && ip!=nil {
+		for i := range loopIF.IPAddresses {
+			if ip, ok := nDB.loopIPMap[loopIF.IPAddresses[i]]; !ok && ip != nil {
 				//TODO: Report an error back to the controller; store it somewhere, report it at the end of the function
 				nDB.logger.Errorf("Duplicate IP found: %s", ip)
 			} else {
-				for i := range loopIF.IpAddresses {
-					nDB.loopIPMap[loopIF.IpAddresses[i]] = node
+				for i := range loopIF.IPAddresses {
+					nDB.loopIPMap[loopIF.IPAddresses[i]] = node
 				}
 			}
 		}
-		if mac, ok := nDB.loopMACMap[loopIF.PhysAddress]; !ok && mac!=nil{
+		if mac, ok := nDB.loopMACMap[loopIF.PhysAddress]; !ok && mac != nil {
 			nDB.logger.Errorf("Duplicate MAC address found: %s", mac)
 		} else {
 			nDB.loopMACMap[loopIF.PhysAddress] = node
@@ -309,43 +324,43 @@ func (nDB *NodesDB) getNodeLoopIFInfo(node *Node) (NodeInterface, error) {
 	return NodeInterface{}, err
 }
 
-/*This function validates the the entries of node ARP tables to make sure that
+/*ValidateLoopIFAddresses validates the the entries of node ARP tables to make sure that
 the number of entries is correct as well as making sure that each entry's
 ip address and mac address correspond to the correct node in the network.*/
 func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
-	nodemap:= make(map[string]bool)
-	for key := range nDB.nMap  {
+	nodemap := make(map[string]bool)
+	for key := range nDB.nMap {
 		nodemap[key] = true
 	}
-	for _,node := range nodelist  {
-		nLoopIF,err := nDB.getNodeLoopIFInfo(node)
-		if err != nil{
+	for _, node := range nodelist {
+		nLoopIF, err := nDB.getNodeLoopIFInfo(node)
+		if err != nil {
 			nDB.logger.Error(err)
 			nDB.logger.Errorf("Cannot process node ARP Table because loop interface info is missing.")
 			continue
 		}
-		for _, arp := range node.NodeIPArp  {
+		for _, arp := range node.NodeIPArp {
 			if node.NodeInterfaces[int(arp.Interface)].VppInternalName != "loop0" {
 				continue
 			}
 
-			nLoopIFTwo,ok := node.NodeInterfaces[int(arp.Interface)]
+			nLoopIFTwo, ok := node.NodeInterfaces[int(arp.Interface)]
 			if !ok {
-				nDB.logger.Errorf("Loop Interface in ARP Table not found: %d",arp.Interface)
+				nDB.logger.Errorf("Loop Interface in ARP Table not found: %d", arp.Interface)
 			}
 			if nLoopIF.VppInternalName != nLoopIFTwo.VppInternalName {
 				continue
 			}
-			macNode,ok := nDB.loopMACMap[arp.MacAddress]
+			macNode, ok := nDB.loopMACMap[arp.MacAddress]
 			addressNotFound := false
-			if !ok{
+			if !ok {
 				nDB.logger.Errorf("Node for MAC Address %s not found", arp.MacAddress)
 				addressNotFound = true
 			}
-			ipNode,ok := nDB.loopIPMap[arp.IPAddress+"/24"]
+			ipNode, ok := nDB.loopIPMap[arp.IPAddress+"/24"]
 
 			if !ok {
-				nDB.logger.Errorf("Node %s could not find Node with IP Address %s",node.Name,arp.IPAddress)
+				nDB.logger.Errorf("Node %s could not find Node with IP Address %s", node.Name, arp.IPAddress)
 				addressNotFound = true
 			}
 			if addressNotFound {
@@ -353,16 +368,16 @@ func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 			}
 			if macNode.Name != ipNode.Name {
 				nDB.logger.Errorf("MAC and IP point to different nodes: %s and %s in ARP Table %+v",
-											macNode.Name,ipNode.Name,arp)
+					macNode.Name, ipNode.Name, arp)
 				return false
 			}
-			delete(nodemap,node.Name)
+			delete(nodemap, node.Name)
 		}
 	}
-	if len(nodemap)> 0 {
-		for node := range nodemap  {
-			nDB.logger.Errorf("No MAC entry found for %+v",node)
-			delete(nodemap,node)
+	if len(nodemap) > 0 {
+		for node := range nodemap {
+			nDB.logger.Errorf("No MAC entry found for %+v", node)
+			delete(nodemap, node)
 		}
 	}
 	return true

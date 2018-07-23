@@ -7,48 +7,48 @@ import (
 )
 
 const (
-	LivenessPort      = ":9999"
-	LivessURL         = "/liveness"
-	Timeout           = 100000000000
-	InterfacePort     = ":9999"
-	InterfaceURL      = "/interfaces"
-	BridgeDomainsPort = ":9999"
-	BridgeDomainURL   = "/bridgedomains"
-	L2FibsPort        = ":9999"
-	L2FibsURL         = "/l2fibs"
-	TelemetryPort     = ":9999"
-	TelemetryURL      = "/telemetry"
-	ArpPort = ":9999"
-	ArpURL = "/arps"
-	NodeHTTPCalls     = 5
+	livenessPort      = ":9999"
+	livenessURL       = "/liveness"
+	timeout           = 100000000000
+	interfacePort     = ":9999"
+	interfaceURL      = "/interfaces"
+	bridgeDomainsPort = ":9999"
+	bridgeDomainURL   = "/bridgedomains"
+	l2FibsPort        = ":9999"
+	l2FibsURL         = "/l2fibs"
+	telemetryPort     = ":9999"
+	telemetryURL      = "/telemetry"
+	arpPort           = ":9999"
+	arpURL            = "/arps"
+	nodeHTTPCalls     = 5
 )
 
 //Gathers a number of data points for every node in the Node List
 
-func (plugin *Plugin) collectAgentInfo() {
-	nodeList := plugin.nodeDB.GetAllNodes()
+func (Plugin *Plugin) collectAgentInfo() {
+	nodeList := Plugin.nodeDB.GetAllNodes()
 	client := http.Client{
 		Transport:     nil,
 		CheckRedirect: nil,
 		Jar:           nil,
-		Timeout:       Timeout,
+		Timeout:       timeout,
 	}
 
 	for _, node := range nodeList {
 
-		go plugin.getLivenessInfo(client, node)
+		go Plugin.getLivenessInfo(client, node)
 
-		go plugin.getInterfaceInfo(client, node)
+		go Plugin.getInterfaceInfo(client, node)
 
-		go plugin.getBridgeDomainInfo(client, node)
+		go Plugin.getBridgeDomainInfo(client, node)
 
-		go plugin.getL2FibInfo(client, node)
+		go Plugin.getL2FibInfo(client, node)
 
 		//TODO: Implement getTelemetry correctly.
 		//Does not parse information correctly
-		//go plugin.getTelemetryInfo(client, node)
+		//go Plugin.getTelemetryInfo(client, node)
 
-		go plugin.getIPArpInfo(client, node)
+		go Plugin.getIPArpInfo(client, node)
 
 	}
 }
@@ -62,26 +62,26 @@ over the plugins node database channel to node_db_processor.go where it will be 
 processed, and added to the node database.
 */
 
-func (plugin *Plugin) getLivenessInfo(client http.Client, node *Node) {
-	res, err := client.Get("http://" + node.ManIPAdr + LivenessPort + LivessURL)
+func (Plugin *Plugin) getLivenessInfo(client http.Client, node *Node) {
+	res, err := client.Get("http://" + node.ManIPAdr + livenessPort + livenessURL)
 	if err != nil {
-		plugin.Log.Error(err)
-		plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, nodeInfo: nil}
+		Plugin.Log.Error(err)
+		Plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, nodeInfo: nil}
 		return
 	}
 	b, _ := ioutil.ReadAll(res.Body)
 	b = []byte(b)
 	nodeInfo := &NodeLiveness{}
 	json.Unmarshal(b, nodeInfo)
-	plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, nodeInfo: nodeInfo}
+	Plugin.nDBChannel <- NodeLivenessDTO{nodeName: node.Name, nodeInfo: nodeInfo}
 
 }
 
-func (plugin *Plugin) getInterfaceInfo(client http.Client, node *Node) {
-	res, err := client.Get("http://" + node.ManIPAdr + InterfacePort + InterfaceURL)
+func (Plugin *Plugin) getInterfaceInfo(client http.Client, node *Node) {
+	res, err := client.Get("http://" + node.ManIPAdr + interfacePort + interfaceURL)
 	if err != nil {
-		plugin.Log.Error(err)
-		plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nil}
+		Plugin.Log.Error(err)
+		Plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nil}
 		return
 	}
 	b, _ := ioutil.ReadAll(res.Body)
@@ -89,14 +89,14 @@ func (plugin *Plugin) getInterfaceInfo(client http.Client, node *Node) {
 
 	nodeInterfaces := make(map[int]NodeInterface, 0)
 	json.Unmarshal(b, &nodeInterfaces)
-	plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nodeInterfaces}
+	Plugin.nDBChannel <- NodeInterfacesDTO{nodeName: node.Name, nodeInfo: nodeInterfaces}
 
 }
-func (plugin *Plugin) getBridgeDomainInfo(client http.Client, node *Node) {
-	res, err := client.Get("http://" + node.ManIPAdr + BridgeDomainsPort + BridgeDomainURL)
+func (Plugin *Plugin) getBridgeDomainInfo(client http.Client, node *Node) {
+	res, err := client.Get("http://" + node.ManIPAdr + bridgeDomainsPort + bridgeDomainURL)
 	if err != nil {
-		plugin.Log.Error(err)
-		plugin.nDBChannel <- NodeBridgeDomainsDTO{nodeName: node.Name, nodeInfo: nil}
+		Plugin.Log.Error(err)
+		Plugin.nDBChannel <- NodeBridgeDomainsDTO{nodeName: node.Name, nodeInfo: nil}
 		return
 	}
 	b, _ := ioutil.ReadAll(res.Body)
@@ -104,50 +104,50 @@ func (plugin *Plugin) getBridgeDomainInfo(client http.Client, node *Node) {
 
 	nodeBridgeDomains := make(map[int]NodeBridgeDomains)
 	json.Unmarshal(b, &nodeBridgeDomains)
-	plugin.nDBChannel <- NodeBridgeDomainsDTO{nodeName: node.Name, nodeInfo: nodeBridgeDomains}
+	Plugin.nDBChannel <- NodeBridgeDomainsDTO{nodeName: node.Name, nodeInfo: nodeBridgeDomains}
 
 }
 
-func (plugin *Plugin) getL2FibInfo(client http.Client, node *Node) {
-	res, err := client.Get("http://" + node.ManIPAdr + L2FibsPort + L2FibsURL)
+func (Plugin *Plugin) getL2FibInfo(client http.Client, node *Node) {
+	res, err := client.Get("http://" + node.ManIPAdr + l2FibsPort + l2FibsURL)
 	if err != nil {
-		plugin.Log.Error(err)
-		plugin.nDBChannel <- NodeL2FibsDTO{nodeName: node.Name, nodeInfo: nil}
+		Plugin.Log.Error(err)
+		Plugin.nDBChannel <- NodeL2FibsDTO{nodeName: node.Name, nodeInfo: nil}
 		return
 	}
 	b, _ := ioutil.ReadAll(res.Body)
 	b = []byte(b)
 	nodel2fibs := make(map[string]NodeL2Fib)
 	json.Unmarshal(b, &nodel2fibs)
-	plugin.nDBChannel <- NodeL2FibsDTO{nodeName: node.Name, nodeInfo: nodel2fibs}
+	Plugin.nDBChannel <- NodeL2FibsDTO{nodeName: node.Name, nodeInfo: nodel2fibs}
 
 }
 
-func (plugin *Plugin) getTelemetryInfo(client http.Client, node *Node) {
-	res, err := client.Get("http://" + node.ManIPAdr + TelemetryPort + TelemetryURL)
+func (Plugin *Plugin) getTelemetryInfo(client http.Client, node *Node) {
+	res, err := client.Get("http://" + node.ManIPAdr + telemetryPort + telemetryURL)
 	if err != nil {
-		plugin.Log.Error(err)
-		plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nil}
+		Plugin.Log.Error(err)
+		Plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nil}
 		return
 	}
 	b, _ := ioutil.ReadAll(res.Body)
 	b = []byte(b)
 	nodetelemetry := make(map[string]NodeTelemetry)
 	json.Unmarshal(b, &nodetelemetry)
-	plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nodetelemetry}
+	Plugin.nDBChannel <- NodeTelemetryDTO{nodeName: node.Name, nodeInfo: nodetelemetry}
 }
 
-func (plugin *Plugin) getIPArpInfo(client http.Client, node *Node) {
-	res, err := client.Get("http://" + node.ManIPAdr + ArpPort + ArpURL)
+func (Plugin *Plugin) getIPArpInfo(client http.Client, node *Node) {
+	res, err := client.Get("http://" + node.ManIPAdr + arpPort + arpURL)
 	if err != nil {
-		plugin.Log.Error(err)
-		plugin.nDBChannel <- NodeIPArpDTO{nodeName: node.Name, nodeInfo: nil}
+		Plugin.Log.Error(err)
+		Plugin.nDBChannel <- NodeIPArpDTO{nodeName: node.Name, nodeInfo: nil}
 		return
 	}
 	b, _ := ioutil.ReadAll(res.Body)
 
 	b = []byte(b)
-	nodeiparpslice := make([]NodeIPArp,0)
+	nodeiparpslice := make([]NodeIPArp, 0)
 	json.Unmarshal(b, &nodeiparpslice)
-	plugin.nDBChannel <- NodeIPArpDTO{nodeName: node.Name, nodeInfo: nodeiparpslice}
+	Plugin.nDBChannel <- NodeIPArpDTO{nodeName: node.Name, nodeInfo: nodeiparpslice}
 }

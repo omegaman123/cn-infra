@@ -31,7 +31,7 @@ import (
 // ************************************************************************/
 
 const (
-	PluginName        = "contiv-crd"
+	PluginName = "contiv-crd"
 )
 
 func main() {
@@ -111,19 +111,19 @@ type Deps struct {
 }
 
 // Name implements PluginNamed
-func (p *Plugin) Name() string {
+func (Plugin *Plugin) Name() string {
 	return PluginName
 }
 
 // Init starts the consumer.
-func (plugin *Plugin) Init() error {
-	// Initialize plugin fields.
-	plugin.broker = plugin.Getter.KvPlugin.NewBroker("")
-	plugin.Log.Info("Initialization of the custom plugin for the contiv-crd example is completed")
-	plugin.nodeDB = NewNodesDB(plugin.Log)
+func (Plugin *Plugin) Init() error {
+	// Initialize Plugin fields.
+	Plugin.broker = Plugin.Getter.KvPlugin.NewBroker("")
+	Plugin.Log.Info("Initialization of the custom Plugin for the contiv-crd example is completed")
+	Plugin.nodeDB = NewNodesDB(Plugin.Log)
 
 	// Start the consumer (ETCD watcher).
-	go plugin.consumer()
+	go Plugin.consumer()
 
 	return nil
 }
@@ -131,19 +131,19 @@ func (plugin *Plugin) Init() error {
 // Close shutdowns both the publisher and the consumer.
 // Channels used to propagate data resync and data change events are closed
 // as well.
-func (plugin *Plugin) Close() error {
+func (Plugin *Plugin) Close() error {
 	return nil
 }
 
 // AfterInit starts the publisher and prepares for the shutdown.
-func (plugin *Plugin) AfterInit() error {
+func (Plugin *Plugin) AfterInit() error {
 
-	go plugin.closePlugin()
+	go Plugin.closePlugin()
 
 	return nil
 }
 
-func (plugin *Plugin) closePlugin() {
+func (Plugin *Plugin) closePlugin() {
 	sigchan := make(chan os.Signal, 10)
 	signal.Notify(sigchan, os.Interrupt)
 	<-sigchan
@@ -157,51 +157,50 @@ func (plugin *Plugin) closePlugin() {
 // consumer (watcher) is subscribed to watch on data store changes.
 // Changes arrive via data change channel, get identified based on the key
 // and printed into the log.
-func (plugin *Plugin) consumer() {
+func (Plugin *Plugin) consumer() {
 
-	plugin.Log.Print("KeyValProtoGetter started")
+	Plugin.Log.Print("KeyValProtoGetter started")
 
-	messageList, err := plugin.broker.ListValues("/vnf-agent/contiv-ksr/allocatedIDs")
+	messageList, err := Plugin.broker.ListValues("/vnf-agent/contiv-ksr/allocatedIDs")
 	if err != nil {
-		plugin.Log.Error("Error: ", err)
+		Plugin.Log.Error("Error: ", err)
 	}
 	for {
 		message, stop := messageList.GetNext()
 		protoMessage := &node.NodeInfo{}
 		if stop {
-			plugin.Log.Info("No more data under: ", messageList)
+			Plugin.Log.Info("No more data under: ", messageList)
 			break
 		}
 		err = message.GetValue(protoMessage)
 		if err != nil {
-			plugin.Log.Error("Error in getting value of iterator: ", err)
+			Plugin.Log.Error("Error in getting value of iterator: ", err)
 			continue
 		}
-		plugin.Log.Infof("Getting data under %+v : %+v", messageList, protoMessage)
-		plugin.nodeDB.AddNode(protoMessage.Id, protoMessage.Name, protoMessage.IpAddress, protoMessage.ManagementIpAddress)
+		Plugin.Log.Infof("Getting data under %+v : %+v", messageList, protoMessage)
+		Plugin.nodeDB.AddNode(protoMessage.Id, protoMessage.Name, protoMessage.IpAddress, protoMessage.ManagementIpAddress)
 	}
 	//Rest client
-	nodeList := plugin.nodeDB.GetAllNodes()
+	nodeList := Plugin.nodeDB.GetAllNodes()
 
-	plugin.nDBChannel = make(chan interface{})
+	Plugin.nDBChannel = make(chan interface{})
 
-	plugin.collectAgentInfo()
+	Plugin.collectAgentInfo()
 
-	plugin.ProcessNodeData(nodeList)
+	Plugin.ProcessNodeData(nodeList)
 
-	plugin.nodeDB.PopulateNodeMaps(nodeList)
+	Plugin.nodeDB.PopulateNodeMaps(nodeList)
 
-	plugin.nodeDB.ValidateLoopIFAddresses(nodeList)
-
+	Plugin.nodeDB.ValidateLoopIFAddresses(nodeList)
 
 	for _, node := range nodeList {
-		plugin.Log.Infof("Node %+v ", node.Name)
-		plugin.Log.Infof("Node Liveness: %+v", node.NodeLiveness)
-		plugin.Log.Infof("Node Interfaces: %+v", node.NodeInterfaces)
-		plugin.Log.Infof("Node Bridge Domains: %+v", node.NodeBridgeDomains)
-		plugin.Log.Infof("Node L2Fibs: %+v", node.NodeL2Fibs)
-		plugin.Log.Infof("Node IPArps: %+v",node.NodeIPArp)
-		//plugin.Log.Infof("Node Telemetry: %+v", node.NodeTelemetry)
+		Plugin.Log.Infof("Node %+v ", node.Name)
+		Plugin.Log.Infof("Node Liveness: %+v", node.NodeLiveness)
+		Plugin.Log.Infof("Node Interfaces: %+v", node.NodeInterfaces)
+		Plugin.Log.Infof("Node Bridge Domains: %+v", node.NodeBridgeDomains)
+		Plugin.Log.Infof("Node L2Fibs: %+v", node.NodeL2Fibs)
+		Plugin.Log.Infof("Node IPArps: %+v", node.NodeIPArp)
+		//Plugin.Log.Infof("Node Telemetry: %+v", node.NodeTelemetry)
 	}
 
 }

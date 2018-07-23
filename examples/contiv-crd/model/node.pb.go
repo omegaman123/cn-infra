@@ -22,10 +22,10 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // It records an unique node ID to identify the node within the cluster.
 // ID determines IPAM for the given node.
 type NodeInfo struct {
-	Id                   uint32   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	IpAddress            string   `protobuf:"bytes,3,opt,name=ip_address,json=ipAddress,proto3" json:"ip_address,omitempty"`
-	ManagementIpAddress  string   `protobuf:"bytes,4,opt,name=management_ip_address,json=managementIpAddress,proto3" json:"management_ip_address,omitempty"`
+	Id                  uint32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name                string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	IpAddress           string `protobuf:"bytes,3,opt,name=ip_address,json=ipAddress,proto3" json:"ip_address,omitempty"`
+	ManagementIpAddress string `protobuf:"bytes,4,opt,name=management_ip_address,json=managementIpAddress,proto3" json:"management_ip_address,omitempty"`
 }
 
 func (m *NodeInfo) Reset()         { *m = NodeInfo{} }
@@ -34,6 +34,7 @@ func (*NodeInfo) ProtoMessage()    {}
 func (*NodeInfo) Descriptor() ([]byte, []int) {
 	return fileDescriptor_node_dc3f1d5651cea25d, []int{0}
 }
+
 //func (m *NodeInfo) XXX_Unmarshal(b []byte) error {
 //	return xxx_messageInfo_NodeInfo.Unmarshal(m, b)
 //}
@@ -49,7 +50,6 @@ func (*NodeInfo) Descriptor() ([]byte, []int) {
 //func (m *NodeInfo) XXX_DiscardUnknown() {
 //	xxx_messageInfo_NodeInfo.DiscardUnknown(m)
 //}
-
 
 func (m *NodeInfo) GetId() uint32 {
 	if m != nil {

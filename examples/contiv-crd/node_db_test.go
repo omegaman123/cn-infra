@@ -106,12 +106,12 @@ func TestNodesDB_SetNodeInterfaces(t *testing.T) {
 	gomega.Expect(node.ID).To(gomega.Equal(uint32(1)))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 	var ips []string
-	nodeIFs := make([]NodeInterface,0)
-	nodeIF := NodeInterface{"Test","Testing",0,true,"",0,vxlan{},ips,tap{}}
-	nodeIFs = append(nodeIFs,nodeIF)
-	err := db.SetNodeInterfaces("NENODE",nodeIFs)
+	nodeIFs := make([]NodeInterface, 0)
+	nodeIF := NodeInterface{"Test", "Testing", 0, true, "", 0, vxlan{}, ips, tap{}}
+	nodeIFs = append(nodeIFs, nodeIF)
+	err := db.SetNodeInterfaces("NENODE", nodeIFs)
 	gomega.Expect(err).To(gomega.Not(gomega.BeNil()))
-	err = db.SetNodeInterfaces("k8s_master",nodeIFs)
+	err = db.SetNodeInterfaces("k8s_master", nodeIFs)
 	gomega.Expect(err).To(gomega.BeNil())
 }
 
@@ -126,15 +126,15 @@ func TestNodesDB_SetNodeBridgeDomain(t *testing.T) {
 	gomega.Expect(node.ID).To(gomega.Equal(uint32(1)))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 	var ifs []bdinterfaces
-	nodeBD := NodeBridgeDomains{ifs,"",false,}
-	nodesBDs := make([]NodeBridgeDomains,0)
-	nodesBDs = append(nodesBDs,nodeBD)
+	nodeBD := NodeBridgeDomains{ifs, "", false}
+	nodesBDs := make([]NodeBridgeDomains, 0)
+	nodesBDs = append(nodesBDs, nodeBD)
 
-	err := db.SetNodeBridgeDomain("NENODE",nodesBDs)
+	err := db.SetNodeBridgeDomain("NENODE", nodesBDs)
 	gomega.Expect(err).To(gomega.Not(gomega.BeNil()))
-	err = db.SetNodeBridgeDomain("k8s_master",nodesBDs)
+	err = db.SetNodeBridgeDomain("k8s_master", nodesBDs)
 	gomega.Expect(err).To(gomega.BeNil())
-	gomega.Expect(node.NodeBridgeDomains[0]).To(gomega.BeEquivalentTo(NodeBridgeDomains{ifs,"",false}))
+	gomega.Expect(node.NodeBridgeDomains[0]).To(gomega.BeEquivalentTo(NodeBridgeDomains{ifs, "", false}))
 
 }
 
@@ -149,16 +149,16 @@ func TestNodesDB_SetNodeIPARPs(t *testing.T) {
 	gomega.Expect(node.ID).To(gomega.Equal(uint32(1)))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 
-	nodeiparps := make([]NodeIPArp,0)
-	nodeiparp := NodeIPArp{1,"1.2.3.4","12:34:56:78",false}
-	nodeiparps = append(nodeiparps,nodeiparp)
+	nodeiparps := make([]NodeIPArp, 0)
+	nodeiparp := NodeIPArp{1, "1.2.3.4", "12:34:56:78", false}
+	nodeiparps = append(nodeiparps, nodeiparp)
 
 	err := db.SetNodeIPARPs("NENODE", nodeiparps)
 	gomega.Expect(err).To(gomega.Not(gomega.BeNil()))
-	err = db.SetNodeIPARPs("k8s_master",nodeiparps)
+	err = db.SetNodeIPARPs("k8s_master", nodeiparps)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	gomega.Expect(nodeiparps[0]).To(gomega.BeEquivalentTo(NodeIPArp{1,"1.2.3.4","12:34:56:78",false}))
+	gomega.Expect(nodeiparps[0]).To(gomega.BeEquivalentTo(NodeIPArp{1, "1.2.3.4", "12:34:56:78", false}))
 }
 
 func TestNodesDB_SetNodeLiveness(t *testing.T) {
@@ -172,13 +172,13 @@ func TestNodesDB_SetNodeLiveness(t *testing.T) {
 	gomega.Expect(node.ID).To(gomega.Equal(uint32(1)))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 
-	nlive := NodeLiveness{"54321","12345",0,0,0,0,""}
-	err := db.SetNodeLiveness("NENODE",&nlive)
+	nlive := NodeLiveness{"54321", "12345", 0, 0, 0, 0, ""}
+	err := db.SetNodeLiveness("NENODE", &nlive)
 	gomega.Expect(err).To(gomega.Not(gomega.BeNil()))
-	err = db.SetNodeLiveness("k8s_master",&nlive)
+	err = db.SetNodeLiveness("k8s_master", &nlive)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	gomega.Expect(node.NodeLiveness).To(gomega.BeEquivalentTo(&NodeLiveness{"54321","12345",0,0,0,0,""}))
+	gomega.Expect(node.NodeLiveness).To(gomega.BeEquivalentTo(&NodeLiveness{"54321", "12345", 0, 0, 0, 0, ""}))
 
 }
 
@@ -193,17 +193,15 @@ func TestNodesDB_SetNodeL2Fibs(t *testing.T) {
 	gomega.Expect(node.ID).To(gomega.Equal(uint32(1)))
 	gomega.Expect(node.ManIPAdr).To(gomega.Equal("10"))
 
-	nfib := NodeL2Fib{1,2,"test",true,false}
+	nfib := NodeL2Fib{1, 2, "test", true, false}
 	var nfibs []NodeL2Fib
 	nfibs = append(nfibs, nfib)
 
-	err := db.SetNodeL2Fibs("NENODE",nfibs)
+	err := db.SetNodeL2Fibs("NENODE", nfibs)
 	gomega.Expect(err).To(gomega.Not(gomega.BeNil()))
-	err = db.SetNodeL2Fibs("k8s_master",nfibs)
+	err = db.SetNodeL2Fibs("k8s_master", nfibs)
 	gomega.Expect(err).To(gomega.BeNil())
 
-	gomega.Expect(node.NodeL2Fibs[0]).To(gomega.BeEquivalentTo(NodeL2Fib{1,2,"test",true,false}))
+	gomega.Expect(node.NodeL2Fibs[0]).To(gomega.BeEquivalentTo(NodeL2Fib{1, 2, "test", true, false}))
 
 }
-
-
