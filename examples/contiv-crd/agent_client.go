@@ -145,6 +145,7 @@ func (plugin *Plugin) getIPArpInfo(client http.Client, node *Node) {
 		return
 	}
 	b, _ := ioutil.ReadAll(res.Body)
+
 	b = []byte(b)
 	nodeiparpslice := make([]NodeIPArp,0)
 	json.Unmarshal(b, &nodeiparpslice)

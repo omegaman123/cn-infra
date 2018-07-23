@@ -95,7 +95,7 @@ type NodeIPArp struct {
 	Interface  uint32 `json:"interface"`
 	IPAddress  string `json:"IPAddress"`
 	MacAddress string `json:"MacAddress"`
-	static     bool   `json:"Static"`
+	Static     bool   `json:"Static"`
 }
 
 type NodeIPArpDTO struct {
@@ -178,6 +178,8 @@ func (nDB *NodesDB) SetNodeInterfaces(name string, nInt map[int]NodeInterface) e
 	return nil
 
 }
+
+//Simple function to set a nodes bridge given its name.
 func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge map[int]NodeBridgeDomains) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -187,6 +189,7 @@ func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge map[int]NodeBridgeD
 	return nil
 }
 
+//Simple function to set a nodes l2 fibs given its name.
 func (nDB *NodesDB) SetNodeL2Fibs(name string, nL2F map[string]NodeL2Fib) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -196,6 +199,7 @@ func (nDB *NodesDB) SetNodeL2Fibs(name string, nL2F map[string]NodeL2Fib) error 
 	return nil
 }
 
+//Simple function to set a nodes telemetry data given its name.
 func (nDB *NodesDB) SetNodeTelemetry(name string, nTele map[string]NodeTelemetry) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -205,6 +209,7 @@ func (nDB *NodesDB) SetNodeTelemetry(name string, nTele map[string]NodeTelemetry
 	return nil
 }
 
+//Simple function to set a nodes ip arp table given its name.
 func (nDB *NodesDB) SetNodeIPARPs(name string, nArps []NodeIPArp) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -265,6 +270,8 @@ func (nDB *NodesDB) GetAllNodes() []*Node {
 	return nList
 }
 
+//This function populates two of the node maps: the ip and mac address map
+//It also checks to make sure that there are no duplicate addresses within the map.
 func (nDB *NodesDB) PopulateNodeMaps(nodelist []*Node) {
 	for _, node := range nodelist {
 		loopIF, err := nDB.getNodeLoopIFInfo(node)
@@ -287,9 +294,9 @@ func (nDB *NodesDB) PopulateNodeMaps(nodelist []*Node) {
 			nDB.loopMACMap[loopIF.PhysAddress] = node
 		}
 	}
-
 }
 
+//Small helper function that returns the loop interface of a node
 func (nDB *NodesDB) getNodeLoopIFInfo(node *Node) (NodeInterface, error) {
 	for _, ifs := range node.NodeInterfaces {
 		if ifs.VppInternalName == "loop0" {
@@ -300,12 +307,15 @@ func (nDB *NodesDB) getNodeLoopIFInfo(node *Node) (NodeInterface, error) {
 	return NodeInterface{}, err
 }
 
+/*This function validates the the entries of node ARP tables to make sure that
+the number of entries is correct as well as making sure that each entry's
+ip address and mac address correspond to the correct node in the network.*/
 func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
-	for _,node := range nodelist  {
-		nodemap:= make(map[string]bool)
-		for key := range nDB.nMap  {
+	nodemap:= make(map[string]bool)
+	for key := range nDB.nMap  {
 		nodemap[key] = true
-		}
+	}
+	for _,node := range nodelist  {
 		nLoopIF,err := nDB.getNodeLoopIFInfo(node)
 		if err != nil{
 			nDB.logger.Error(err)
@@ -313,6 +323,10 @@ func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 			continue
 		}
 		for _, arp := range node.NodeIPArp  {
+			if node.NodeInterfaces[int(arp.Interface)].VppInternalName != "loop0" {
+				continue
+			}
+
 			nLoopIFTwo,ok := node.NodeInterfaces[int(arp.Interface)]
 			if !ok {
 				nDB.logger.Errorf("Loop Interface in ARP Table not found: %d",arp.Interface)
@@ -326,7 +340,8 @@ func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 				nDB.logger.Errorf("Node for MAC Address %s not found", arp.MacAddress)
 				addressNotFound = true
 			}
-			ipNode,ok := nDB.loopIPMap[arp.IPAddress]
+			ipNode,ok := nDB.loopIPMap[arp.IPAddress+"/24"]
+
 			if !ok {
 				nDB.logger.Errorf("Node %s could not find Node with IP Address %s",node.Name,arp.IPAddress)
 				addressNotFound = true
@@ -339,7 +354,13 @@ func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 											macNode.Name,ipNode.Name,arp)
 				return false
 			}
-
+			delete(nodemap,node.Name)
+		}
+	}
+	if len(nodemap)> 0 {
+		for node := range nodemap  {
+			nDB.logger.Errorf("No MAC entry found for %+v",node)
+			delete(nodemap,node)
 		}
 	}
 	return true
