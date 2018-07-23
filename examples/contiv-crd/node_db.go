@@ -160,6 +160,7 @@ func NewNodesDB(logger logging.PluginLogger) (n *NodesDB) {
 		logger}
 }
 
+//Simple function to set a nodes interface given its name.
 func (nDb *NodesDB) SetNodeLiveness(name string, nLive *NodeLiveness) error {
 	node, err := nDb.GetNode(name)
 	if err != nil {
@@ -169,6 +170,7 @@ func (nDb *NodesDB) SetNodeLiveness(name string, nLive *NodeLiveness) error {
 	return nil
 }
 
+//Simple function to set a nodes interface given its name.
 func (nDB *NodesDB) SetNodeInterfaces(name string, nInt map[int]NodeInterface) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
@@ -179,7 +181,7 @@ func (nDB *NodesDB) SetNodeInterfaces(name string, nInt map[int]NodeInterface) e
 
 }
 
-//Simple function to set a nodes bridge given its name.
+//Simple function to set a nodes bridge domain given its name.
 func (nDB *NodesDB) SetNodeBridgeDomain(name string, nBridge map[int]NodeBridgeDomains) error {
 	node, err := nDB.GetNode(name)
 	if err != nil {
