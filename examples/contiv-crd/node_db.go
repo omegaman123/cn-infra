@@ -303,7 +303,7 @@ func (nDB *NodesDB) getNodeLoopIFInfo(node *Node) (NodeInterface, error) {
 func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 	for _,node := range nodelist  {
 		nLoopIF,err := nDB.getNodeLoopIFInfo(node)
-		if err !=nil{
+		if err != nil{
 			nDB.logger.Error(err)
 			nDB.logger.Errorf("Cannot process node ARP Table because loop interface info is missing.")
 			continue
