@@ -302,6 +302,10 @@ func (nDB *NodesDB) getNodeLoopIFInfo(node *Node) (NodeInterface, error) {
 
 func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 	for _,node := range nodelist  {
+		nodemap:= make(map[string]bool)
+		for key := range nDB.nMap  {
+		nodemap[key] = true
+		}
 		nLoopIF,err := nDB.getNodeLoopIFInfo(node)
 		if err != nil{
 			nDB.logger.Error(err)
@@ -335,6 +339,7 @@ func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 											macNode.Name,ipNode.Name,arp)
 				return false
 			}
+
 		}
 	}
 	return true
