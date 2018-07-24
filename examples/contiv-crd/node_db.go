@@ -22,6 +22,8 @@ type Node struct {
 	NodeIPArp         []NodeIPArp
 }
 
+
+
 //NodeLiveness holds the unmarshalled node liveness JSON data
 type NodeLiveness struct {
 	BuildVersion string `json:"build_version"`
@@ -369,7 +371,7 @@ func (nDB *NodesDB) ValidateLoopIFAddresses(nodelist []*Node) bool {
 			if macNode.Name != ipNode.Name {
 				nDB.logger.Errorf("MAC and IP point to different nodes: %s and %s in ARP Table %+v",
 					macNode.Name, ipNode.Name, arp)
-				return false
+
 			}
 			delete(nodemap, node.Name)
 		}
